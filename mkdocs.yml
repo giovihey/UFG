@@ -1,4 +1,5 @@
 site_name: UFG
+site_url: https://giovihey.github.io/UFG/
 nav:
   - Home: index.md
   - About: about.md
