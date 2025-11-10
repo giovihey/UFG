@@ -38,12 +38,12 @@ jobs:
         with:
           path: site # default folder mkdocs build
 
-    deploy-pages:
-      needs: deploy # to run after deploy
-      runs-on: ubuntu-latest
-      permissions:
-        pages: write
-        id-token: write
-      steps:
-        - name: Deploy to Github Pages
-          uses: actions/deploy-pages@v4
+  deploy-pages:
+    needs: deploy # to run after deploy
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to Github Pages
+        uses: actions/deploy-pages@v4
