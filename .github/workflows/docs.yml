@@ -30,7 +30,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🏗️  Build & deploy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mkdocs gh-deploy --force --clean
+      - name: Build site
+        run: mkdocs build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site # default folder mkdocs build
+
+    deploy-pages:
+      needs: deploy # to run after deploy
+      runs-on: ubuntu-latest
+      permissions:
+        pages: write
+        id-token: write
+      steps:
+        - name: Deploy to Github Pages
+          uses: actions/deploy-pages@v4
