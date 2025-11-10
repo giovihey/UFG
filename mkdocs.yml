@@ -1,0 +1,56 @@
+site_name: UFG
+nav:
+  - Home: index.md
+  - About: about.md
+  - Setup: setup.md
+  - Onboarding: onboarding.md
+theme:
+  name: material
+  language: en
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    # --- Navigation Features ---
+    - navigation.sections # Group sidebar items into collapsible sections
+    - navigation.expand # Automatically expand sidebar sections
+    - toc.integrate # Move the Table of Contents into the sidebar
+    - navigation.top # Adds a "Back to top" button
+    - navigation.indexes # Allows 'index.md' files to act as section intros
+
+    # --- Search Features ---
+    - search.suggest # Enable search suggestions (autocomplete)
+    - search.highlight # Highlight search terms on the page
+
+    # --- Content Features ---
+    - content.code.annotate # (Very cool) Adds tooltips to code blocks
+    - content.code.copy # Adds a "copy to clipboard" button to code blocks
+markdown_extensions:
+  # --- Standard Extensions ---
+  - admonition # Adds colored !note, !warning, !tip boxes
+  - pymdownx.details # Adds collapsible 'details' blocks
+  - pymdownx.superfences # For advanced code blocks (like nesting)
+  - pymdownx.critic # For tracking changes (e.g., {==insert==} or {--delete--})
+  - pymdownx.caret # For ==highlighting== text
+  - pymdownx.mark # For <mark>marking</mark> text
+  - pymdownx.tilde # For ~~strikethrough~~ text
+  - attr_list # Lets you add attributes to elements (like CSS classes)
+  - md_in_html # Lets you write Markdown inside HTML blocks
+
+  # --- Code-Specific Extensions ---
+  - pymdownx.highlight:
+      anchor_linenums: true # Lets you link to specific code lines
+  - pymdownx.inlinehilite # For highlighting inline `code`
+  - pymdownx.snippets # For including snippets from other files
+  - pymdownx.tabbed: # Adds content tabs (great for OS-specific instructions)
+      alternate_style: true
