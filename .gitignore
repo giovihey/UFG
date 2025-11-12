@@ -11,6 +11,7 @@
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+.gradle/
 
 # AWS User-specific
 .idea/**/aws.xml
@@ -58,7 +59,7 @@ cmake-build-*/
 
 # IntelliJ
 out/
-
+build/
 # mpeltonen/sbt-idea plugin
 .idea_modules/
 
