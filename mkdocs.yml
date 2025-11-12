@@ -2,9 +2,26 @@ site_name: UFG
 site_url: https://giovihey.github.io/UFG/
 nav:
   - Home: index.md
-  - About: about.md
-  - Setup: setup.md
-  - Onboarding: onboarding.md
+  - Project Report:
+      - Concept: concept.md
+      - Requirements Elicitation and Analysis: requirements.md
+      - Design:
+          - Overview: design.md
+          - Architecture: design_layers/01_architecture.md
+          - Infrastructure: design_layers/02_infrastructure.md
+          - Modelling: design_layers/03_modelling.md
+          - Interaction: design_layers/04_interaction.md
+          - Behaviour: design_layers/05_behaviour.md
+          - Data and Consistency: design_layers/06_data_consistency.md
+          - Fault-Tolerance: design_layers/07_fault_tolerance.md
+          - Availability: design_layers/08_availability.md
+          - Security: design_layers/09_security.md
+      - Implementation: implementation.md
+      - Validation: validation.md
+      - Deployment: deployment.md
+      - User Guide: user_guide.md
+      - Self-evaluation: self_evaluation/self_evaluation.md
+      - Future Works: future_works.md
 theme:
   name: material
   language: en
