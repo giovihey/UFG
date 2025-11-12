@@ -21,7 +21,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("com.heyteam.UFG.MainKt")
+    mainClass.set("com.heyteam.ufg.MainKt")
 }
 
 tasks.test {
