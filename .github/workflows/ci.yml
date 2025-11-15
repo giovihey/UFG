@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -22,10 +22,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
 
-      - name: Make gradlew executable (Linux/macOS)
+      - name: Make gradlew executable (Linux btw)
         run: chmod +x gradlew
 
-      - name: Run tests
+      - name: Run tests (I use neovim btw)
         run: ./gradlew test
 
       - name: Build project
