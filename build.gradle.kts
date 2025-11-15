@@ -14,6 +14,12 @@ repositories {
     mavenCentral()
 }
 
+tasks.jar {
+    manifest {
+        attributes(mapOf("Main-Class" to "com.heyteam.ufg.MainKt"))
+    }
+}
+
 detekt {
     buildUponDefaultConfig = true
     allRules = false
