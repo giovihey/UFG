@@ -1,3 +1,13 @@
+## [2.1.0](https://github.com/giovihey/UFG/compare/v2.0.0...v2.1.0) (2025-11-15)
+
+### Features
+
+* change game ([b1b9614](https://github.com/giovihey/UFG/commit/b1b9614336006d86d019ba81c3784b4cdc86dff8))
+
+### Bug Fixes
+
+* remove junk from readme ([bfd8457](https://github.com/giovihey/UFG/commit/bfd8457ed57d1c8fa776e604a8df39fa92676b43))
+
 ## [2.0.0](https://github.com/giovihey/UFG/compare/v1.2.3...v2.0.0) (2025-11-15)
 
 ### ⚠ BREAKING CHANGES
