@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/giovihey/UFG/compare/v1.1.0...v1.2.0) (2025-11-15)
+
+
+### Bug Fixes
+
+* configuration refactoring and version change ([7a9f9d3](https://github.com/giovihey/UFG/commit/7a9f9d34805478e0e7c2df4d1f24ac73fc1851cb))
+
+
+### Features
+
+* add first gradle config ([285c23d](https://github.com/giovihey/UFG/commit/285c23dff46939eb5aa99135ef91cfca51a2cf18))
+* gradle project setup finished ([b9b2b9c](https://github.com/giovihey/UFG/commit/b9b2b9cffd0983403695674aa48cbd535ca12fbf))
+
 # [1.1.0](https://github.com/giovihey/UFG/compare/v1.0.0...v1.1.0) (2025-11-15)
 
 
