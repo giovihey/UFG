@@ -1,5 +1,5 @@
 package com.heyteam.ufg
 
 fun main() {
-    println("Hello, UFG!")
+    println("Fight in UFG")
 }
