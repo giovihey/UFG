@@ -1,3 +1,15 @@
+## [2.0.0](https://github.com/giovihey/UFG/compare/v1.2.3...v2.0.0) (2025-11-15)
+
+### ⚠ BREAKING CHANGES
+
+* pls change the release
+* we love versioning
+
+### Features
+
+* pls change the release ([983f910](https://github.com/giovihey/UFG/commit/983f9104dcb6789ca3951b8cba28f6ea5872520a))
+* we love versioning ([c46146c](https://github.com/giovihey/UFG/commit/c46146c614c4c4bc386747b4f2b495dfb8cf1d75))
+
 ## [1.2.3](https://github.com/giovihey/UFG/compare/v1.2.2...v1.2.3) (2025-11-15)
 
 
