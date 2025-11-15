@@ -1,3 +1,14 @@
+## [2.2.0](https://github.com/giovihey/UFG/compare/v2.1.0...v2.2.0) (2025-11-15)
+
+### Features
+
+* add Hello World to the game ([026cbea](https://github.com/giovihey/UFG/commit/026cbea6b1c89cf9ab3a12094a76c6696cc2f4d1))
+
+### Bug Fixes
+
+* catcha approved ([daafaa0](https://github.com/giovihey/UFG/commit/daafaa0c304d09feb6d9c551a395a10b6dd8d969))
+* the Hello world was unnecessary ([062e349](https://github.com/giovihey/UFG/commit/062e349888d63efe2fb5cf0fbb8a72d59cd54db6))
+
 ## [2.1.0](https://github.com/giovihey/UFG/compare/v2.0.0...v2.1.0) (2025-11-15)
 
 ### Features
