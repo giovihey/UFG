@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/giovihey/UFG/compare/v1.2.0...v1.2.1) (2025-11-15)
+
+
+### Bug Fixes
+
+* convert ci build from ubuntu specific version to latest ([895ca45](https://github.com/giovihey/UFG/commit/895ca450e58238015a94b5a5f12c03c6ea222a4a))
+
 # [1.2.0](https://github.com/giovihey/UFG/compare/v1.1.0...v1.2.0) (2025-11-15)
 
 
