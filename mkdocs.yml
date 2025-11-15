@@ -39,14 +39,14 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
-    # --- Navigation Features --- (not absolutely made by AI, just automated)
+    # Navigation Features (not absolutely made by AI, just automated)
     - navigation.sections # Group sidebar items into collapsible sections
     - navigation.expand # Automatically expand sidebar sections
     - toc.integrate # Move the Table of Contents into the sidebar
     - navigation.top # Adds a "Back to top" button
     - navigation.indexes # Allows 'index.md' files to act as section intros
 
-    # --- Search Features ---
+    # Search Features
     - search.suggest # Enable search suggestions (autocomplete)
     - search.highlight # Highlight search terms on the page
 
