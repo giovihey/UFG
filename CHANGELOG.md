@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/giovihey/UFG/compare/v1.0.0...v1.1.0) (2025-11-15)
+
+
+### Features
+
+* ciao, new release ([b352649](https://github.com/giovihey/UFG/commit/b3526490abbde8af44e68662dda1e2e11b38a987))
+
 # 1.0.0 (2025-11-15)
 
 
