@@ -1,3 +1,10 @@
+## [1.2.3](https://github.com/giovihey/UFG/compare/v1.2.2...v1.2.3) (2025-11-15)
+
+
+### Bug Fixes
+
+* merge workflow for release and jarBuild ([1f685dc](https://github.com/giovihey/UFG/commit/1f685dc49296c4807825a72de2aaf64ed82c137b))
+
 ## [1.2.2](https://github.com/giovihey/UFG/compare/v1.2.1...v1.2.2) (2025-11-15)
 
 
