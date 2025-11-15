@@ -1,3 +1,9 @@
+## [2.3.0](https://github.com/giovihey/UFG/compare/v2.2.0...v2.3.0) (2025-11-15)
+
+### Features
+
+* add a ci for a project ([1789a67](https://github.com/giovihey/UFG/commit/1789a677d2ac57cc4028a9223437af4be706dcfb))
+
 ## [2.2.0](https://github.com/giovihey/UFG/compare/v2.1.0...v2.2.0) (2025-11-15)
 
 ### Features
