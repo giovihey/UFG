@@ -1,3 +1,9 @@
+## [2.3.1](https://github.com/giovihey/UFG/compare/v2.3.0...v2.3.1) (2025-11-15)
+
+### Bug Fixes
+
+* run only on Linux ([f6ee680](https://github.com/giovihey/UFG/commit/f6ee68056794cb0de7b3000f10b9106d899b3c14))
+
 ## [2.3.0](https://github.com/giovihey/UFG/compare/v2.2.0...v2.3.0) (2025-11-15)
 
 ### Features
