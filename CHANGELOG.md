@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/giovihey/UFG/compare/v1.2.1...v1.2.2) (2025-11-15)
+
+
+### Bug Fixes
+
+* remove maven, we don't have maven ([edd433e](https://github.com/giovihey/UFG/commit/edd433e33f4b0cac091621c80b44a8fa7a40a821))
+
 ## [1.2.1](https://github.com/giovihey/UFG/compare/v1.2.0...v1.2.1) (2025-11-15)
 
 
