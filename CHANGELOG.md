@@ -1,3 +1,19 @@
+## [3.0.0](https://github.com/giovihey/UFG/compare/v2.3.1...v3.0.0) (2025-11-30)
+
+### ⚠ BREAKING CHANGES
+
+* define the architecture
+
+### Features
+
+* add Input classes ([7ca3570](https://github.com/giovihey/UFG/commit/7ca3570e0c88e10c34b005a40ff34bb188c9c32b))
+* add keyboard adapter ([df8b7fd](https://github.com/giovihey/UFG/commit/df8b7fde1ebdbf6401197e36b0566884edb2ee94))
+* add MoveInput and default Character class ([5750bfc](https://github.com/giovihey/UFG/commit/5750bfcae4cef0a438270f0083593f1381409739))
+* add NetworkInput dto ([6137e6f](https://github.com/giovihey/UFG/commit/6137e6fffd7305ff0eb5a4d6cf16cacbf90fcd68))
+* add some domain classes ([9572eb9](https://github.com/giovihey/UFG/commit/9572eb9d9a9ef4e487212580e1282b564d55e0f3))
+* define the architecture ([6d21d44](https://github.com/giovihey/UFG/commit/6d21d44bf9de2e0329407be7fa46878cc44d84e5))
+* start working on gameloop ([e03168a](https://github.com/giovihey/UFG/commit/e03168a19ee77c61d828d7ca8b865bc34a54c166))
+
 ## [2.3.1](https://github.com/giovihey/UFG/compare/v2.3.0...v2.3.1) (2025-11-15)
 
 ### Bug Fixes
