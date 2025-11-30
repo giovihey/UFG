@@ -5,18 +5,22 @@ import com.heyteam.ufg.domain.model.InputState
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 
+val defaultKeyMap =
+    mapOf(
+        KeyEvent.VK_W to GameButton.UP,
+        KeyEvent.VK_S to GameButton.DOWN,
+        KeyEvent.VK_A to GameButton.LEFT,
+        KeyEvent.VK_D to GameButton.RIGHT,
+        KeyEvent.VK_P to GameButton.PUNCH,
+        KeyEvent.VK_K to GameButton.KICK,
+    )
+
 class KeyboardInputAdapter(
     private val keyMap: Map<Int, GameButton>,
 ) : KeyAdapter() {
-    val defaultKeyMap =
-        mapOf(
-            KeyEvent.VK_W to GameButton.UP,
-            KeyEvent.VK_S to GameButton.DOWN,
-            KeyEvent.VK_A to GameButton.LEFT,
-            KeyEvent.VK_D to GameButton.RIGHT,
-            KeyEvent.VK_P to GameButton.PUNCH,
-            KeyEvent.VK_K to GameButton.KICK,
-        )
+    companion object {
+        val DEFAULT = KeyboardInputAdapter(defaultKeyMap)
+    }
 
     @Volatile // couldbebug
     private var currentBitMask: Int = 0
