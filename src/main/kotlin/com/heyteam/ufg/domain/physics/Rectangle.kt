@@ -6,7 +6,5 @@ data class Rectangle(
     val width: Double,
     val height: Double,
 ) {
-    fun overlaps(other: Rectangle): Boolean {
-        return TODO();
-    }
+    fun overlaps(other: Rectangle): Boolean = TODO()
 }

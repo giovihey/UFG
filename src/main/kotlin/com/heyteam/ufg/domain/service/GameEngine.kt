@@ -1,4 +1,3 @@
 package com.heyteam.ufg.domain.service
 
-class GameEngine {
-}
+class GameEngine
