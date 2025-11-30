@@ -35,7 +35,7 @@ class KeyboardInputAdapter(
         val gameButton = keyMap[e?.keyCode] ?: return
 
         // bit.inv(): Turn the bit off when released
-        currentBitMask = currentBitMask or gameButton.bit.inv()
+        currentBitMask = currentBitMask and gameButton.bit.inv()
     }
 
     fun getCurrentInputState(): InputState = InputState(currentBitMask)

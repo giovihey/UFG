@@ -11,4 +11,9 @@ class InputBuffer(
         }
         history.addLast(input)
     }
+
+    fun wasPressedRecently(
+        button: GameButton,
+        framesBack: Int,
+    ): Boolean = history.takeLast(framesBack).any { it.isPressed(button) }
 }
