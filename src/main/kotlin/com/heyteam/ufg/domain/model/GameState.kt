@@ -11,7 +11,6 @@ data class GameState(
     val stageBounds: Rectangle = Rectangle(0.0, 0.0, stageWidth, stageHeight),
     val gameStatus: GameStatus = GameStatus.RUNNING,
     val roundTimer: Int = 99, // seconds
-    val activeProjectiles: Set<Projectile> = emptySet(),
     val hitStopFrames: Int = 0,
 ) {
     fun getPlayer(id: Int): Player? = players[id]
@@ -33,8 +32,6 @@ data class GameState(
 
     fun copyWithUpdatedPlayers(updatedPlayers: Map<Int, Player>): GameState = copy(players = updatedPlayers)
 
-    fun copyWithProjectiles(projectiles: Set<Projectile>): GameState = copy(activeProjectiles = projectiles)
-
     fun copyWithHitStop(frames: Int): GameState = copy(hitStopFrames = frames)
 
     fun copyWithFrameIncrement(): GameState = copy(frameNumber = frameNumber + 1)
@@ -45,21 +42,4 @@ enum class GameStatus {
     PAUSED,
     ROUND_END,
     MATCH_END,
-}
-
-data class Projectile(
-    val id: Int,
-    val ownerId: Int,
-    val position: Position,
-    val velocity: Position,
-    val hitBox: Rectangle,
-    val damage: Int,
-    val lifetime: Int,
-    val currentFrame: Int = 0,
-) {
-    fun isExpired(): Boolean = currentFrame >= lifetime
-
-    fun copyWithFrameIncrement(): Projectile = copy(currentFrame = currentFrame + 1)
-
-    fun copyWithPosition(newPosition: Position): Projectile = copy(position = newPosition)
 }
