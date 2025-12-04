@@ -3,12 +3,23 @@ package com.heyteam.ufg.domain.service
 import com.heyteam.ufg.domain.model.GameState
 
 class GameEngine(
-    private val gameState: GameState,
+    private val state: GameState,
+    private val gameLogic: (GameState, Double) -> GameState,
 ) {
-    val players = gameState.players.values.toList()
+    fun getState(): GameState = state
 
-//    fun update(deltaTime: Double) {
-//        players.forEach { player ->
-//        }
-//    }
+    fun update(deltaTime: Double): GameEngine {
+        val newState =
+            if (state.hitStopFrames > 0) {
+                state
+                    .copyWithHitStop(state.hitStopFrames - 1)
+                    .copyWithFrameIncrement()
+            } else {
+                // Apply game logic
+                gameLogic(state, deltaTime)
+                    .copyWithFrameIncrement()
+            }
+
+        return GameEngine(newState, gameLogic)
+    }
 }
