@@ -13,4 +13,9 @@ object GameConstants {
 
     // Game Loop
     const val ROUND_END_DELAY_MS = 2000L // 2 seconds
+
+    const val SCALE = 0.001
+    const val GRAVITY = 1200.0
+    const val ACCEL_RIGHT = 300.0
+    const val FRICTION = 0.88
 }
