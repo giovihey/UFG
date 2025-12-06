@@ -7,15 +7,12 @@ import com.heyteam.ufg.domain.model.Player
 @Suppress("UtilityClassWithPublicConstructor")
 class GameLogic {
     companion object {
-        fun defaultGameLogic(
-            state: GameState,
-            deltaTime: Double,
-        ): GameState {
+        fun defaultGameLogic(state: GameState): GameState {
             if (state.gameStatus != GameStatus.RUNNING) return state
 
             val updatedPlayers =
                 state.players.mapValues { (id, player) ->
-                    updatePlayer(player, state, deltaTime)
+                    updatePlayer(player)
                 }
 
             val finalState =
@@ -29,26 +26,13 @@ class GameLogic {
             }
         }
 
-        private fun updatePlayer(
-            player: Player,
-            state: GameState,
-            deltaTime: Double,
-        ): Player {
-            val moveDeltaX = GameConstants.PLAYER_MOVE_SPEED * deltaTime
+        private fun updatePlayer(player: Player): Player {
             val newHealth =
                 player.health.copy(
                     current = (player.health.current - GameConstants.PLAYER_DAMAGE_PER_FRAME).coerceAtLeast(0),
                 )
-            val newPosition =
-                player.position.copy(
-                    x = (player.position.x + moveDeltaX).coerceIn(0.0, state.stageWidth - GameConstants.STAGE_MARGIN),
-                )
-
-            val newHurtBox = player.hurtBox.copy(x = newPosition.x, y = newPosition.y)
 
             return player.copy(
-                position = newPosition,
-                hurtBox = newHurtBox,
                 health = newHealth,
             )
         }
