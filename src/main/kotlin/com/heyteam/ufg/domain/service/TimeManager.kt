@@ -8,33 +8,39 @@ class TimeManager(
     private val msPerFrame = GameConstants.MS_PER_SECOND / targetFPS.toDouble()
 
     // Fixed timestep management
-    private var accumulator = 0.0
+    private var accumulatorSec = 0.0
     val fixedDt = 1.0 / GameConstants.TARGET_FPS // Physics timestep (can differ from render FPS)
 
     fun update(): FixedTimestepResult {
         val currentTime = System.currentTimeMillis()
-        var elapsed = (currentTime - lastFrameTime) / GameConstants.MS_PER_SECOND
+        var elapsed = (currentTime - lastFrameTime).toDouble()
 
         // Cap frame rate
         if (elapsed < msPerFrame) {
-            Thread.sleep(((msPerFrame - elapsed) * GameConstants.MS_PER_SECOND).toLong())
-            elapsed = (System.currentTimeMillis() - lastFrameTime) / GameConstants.MS_PER_SECOND
+            val sleep = (msPerFrame - elapsed).toLong().coerceAtLeast(0L)
+            Thread.sleep(sleep)
+            val now = System.currentTimeMillis()
+            elapsed = (now - lastFrameTime).toDouble()
         }
 
-        // Update accumulator
-        accumulator += elapsed
+        val elapsedSec = elapsed / GameConstants.MS_PER_SECOND
+        // Accumulate elapsed time in seconds
+        accumulatorSec += elapsedSec
+        var steps = 0
+        while (accumulatorSec >= fixedDt) {
+            accumulatorSec -= fixedDt
+            steps++
+        }
 
         if (fps > GameConstants.TARGET_FPS) fps = 0 else fps++
         lastFrameTime = System.currentTimeMillis()
 
-        return FixedTimestepResult(elapsed, accumulator, fixedDt)
+        return FixedTimestepResult(
+            deltaTime = elapsedSec,
+            steps = steps,
+            fixedDt = fixedDt,
+        )
     }
 
     fun getFPS(): Int = fps
 }
-
-data class FixedTimestepResult(
-    val deltaTime: Double, // Real frame time (for rendering)
-    val accumulator: Double, // Current accumulator (for GameEngine)
-    val fixedDt: Double, // Fixed physics timestep
-)

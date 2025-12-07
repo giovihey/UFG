@@ -6,6 +6,10 @@ object GameConstants {
     const val PLAYER_MOVE_SPEED = 100.0 // pixels per second
     const val PLAYER_DAMAGE_PER_FRAME = 25 // health points per frame
     const val STAGE_MARGIN = 100.0 // pixels from edge
+    const val STAGE_WIDTH = 800.0
+    const val STAGE_HEIGHT = 300.0
+
+    const val UI_REFRESH_RATE = 16L // milliseconds
 
     // Timing
     const val TARGET_FPS = 60
@@ -15,7 +19,7 @@ object GameConstants {
     const val ROUND_END_DELAY_MS = 2000L // 2 seconds
 
     const val SCALE = 0.001
-    const val GRAVITY = 1200.0
-    const val ACCEL_RIGHT = 300.0
+    const val GRAVITY = 2.0
+    const val ACCEL_RIGHT = 3.0
     const val FRICTION = 0.88
 }

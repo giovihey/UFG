@@ -29,7 +29,7 @@ class GameLogic {
         private fun updatePlayer(player: Player): Player {
             val newHealth =
                 player.health.copy(
-                    current = (player.health.current - GameConstants.PLAYER_DAMAGE_PER_FRAME).coerceAtLeast(0),
+                    current = (player.health.current).coerceAtLeast(0),
                 )
 
             return player.copy(
