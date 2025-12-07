@@ -11,26 +11,25 @@ class GameEngine(
     fun getState(): GameState = state
 
     fun update(timeStep: FixedTimestepResult): GameEngine {
-        val (deltaTime, accumulator, fixedDt) = timeStep
+        val (_, steps, fixedDt) = timeStep
         var newState = state
 
         // Fixed timestep physics loop (passed from TimeManager)
-        while (accumulator >= fixedDt) {
+        repeat(steps) {
             newState =
                 if (newState.hitStopFrames > 0) {
                     newState.copyWithHitStop(newState.hitStopFrames - 1)
                 } else {
                     physicsSystem(newState, fixedDt)
                 }
-        }
 
-        // Game logic after physics
-        newState =
-            if (newState.hitStopFrames == 0) {
-                gameLogic(newState, fixedDt)
-            } else {
-                newState.copyWithFrameIncrement()
-            }
+            newState =
+                if (newState.hitStopFrames == 0) {
+                    gameLogic(newState, fixedDt)
+                } else {
+                    newState.copyWithFrameIncrement()
+                }
+        }
 
         return GameEngine(newState, gameLogic, physicsSystem)
     }
