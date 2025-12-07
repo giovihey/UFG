@@ -16,9 +16,10 @@ object PhysicsSystem {
         if (state.gameStatus != GameStatus.RUNNING) return state
 
         val updatedPlayers =
-            state.players.mapValues { (id, player) ->
+            state.players.mapValues { (_, player) ->
                 updatePlayerPhysics(player, state, dt)
             }
+
         return state.copyWithUpdatedPlayers(updatedPlayers)
     }
 
@@ -27,15 +28,15 @@ object PhysicsSystem {
         state: GameState,
         dt: Double,
     ): Player {
-        // Fixed-point acceleration
+        // Horizontal acceleration from input
         val accelX =
             when (player.nextMove.direction) {
-                Direction(x = 1.0, 0.0) -> GameConstants.ACCEL_RIGHT
-                Direction(-1.0, 0.0) -> -GameConstants.ACCEL_RIGHT
+                Direction(x = 1.0, y = 0.0) -> GameConstants.ACCEL_RIGHT
+                Direction(x = -1.0, y = 0.0) -> -GameConstants.ACCEL_RIGHT
                 else -> 0.0
             }
 
-        // Integrate: acceleration → velocity
+        // Integrate: acceleration → velocity (fixed‑point style using SCALE)
         val newVelX = player.nextMove.speedX + accelX * dt / GameConstants.SCALE
         val newVelY = player.nextMove.speedY + GameConstants.GRAVITY * dt / GameConstants.SCALE
 
@@ -43,31 +44,27 @@ object PhysicsSystem {
         val newX = player.position.x + newVelX * dt
         val newY = player.position.y + newVelY * dt
 
-        // Stage bounds (fixed-point)
+        // Stage bounds
         val stageRight = state.stageWidth - GameConstants.STAGE_MARGIN
-        val floorY = state.floorY
+        val floorY = state.floorY // floor is at this Y (positive‑down)
 
         val finalXF = newX.coerceIn(0.0, stageRight)
-        val finalYF = newY.coerceAtLeast(floorY)
 
-        // Ground collision
-        val finalVelY = if (finalYF >= floorY && newVelY > 0) 0.0 else newVelY
+        // Clamp to floor: player cannot go below floorY
+        val clampedY = newY.coerceAtMost(floorY)
 
+        // Zero vertical velocity when we hit the floor coming down
+        val finalVelY =
+            if (newY >= floorY && newVelY > 0.0) 0.0 else newVelY
+
+        // Apply friction
         val frictionVelX = newVelX * GameConstants.FRICTION
         val frictionVelY = finalVelY * GameConstants.FRICTION
 
-        val newHurtBox =
-            player.hurtBox.copy(
-                x = finalXF,
-                y = finalYF,
-            )
+        val newHurtBox = player.hurtBox.copy(x = finalXF, y = clampedY)
 
         return player.copy(
-            position =
-                Position(
-                    x = finalXF,
-                    y = finalYF,
-                ),
+            position = Position(finalXF, clampedY),
             nextMove =
                 player.nextMove.copy(
                     speedX = frictionVelX,
