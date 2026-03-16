@@ -48,42 +48,60 @@ import com.heyteam.ufg.domain.model.Player
 import com.heyteam.ufg.domain.model.Position
 import com.heyteam.ufg.domain.physics.PhysicsSystem
 import com.heyteam.ufg.domain.physics.Rectangle
+import com.heyteam.ufg.domain.service.FixedTimestepResult
 import com.heyteam.ufg.domain.service.GameConstants
 import com.heyteam.ufg.domain.service.GameEngine
 import com.heyteam.ufg.domain.service.GameLogic
 import com.heyteam.ufg.domain.service.TimeManager
 import kotlinx.coroutines.delay
 
+// ── UI presentation constants ─────────────────────────────────────────────────
+
+private const val UI_POLL_INTERVAL_MS = 16L
+private const val FLOOR_BAR_HEIGHT_DP = 4
+private const val CONTENT_PADDING_DP = 16
+private const val DEBUG_PADDING_DP = 12
+private const val CARD_ELEVATION_DP = 4
+
+// ── Initial player / character data ──────────────────────────────────────────
+
+private const val P1_START_X = 100.0
+private const val PLAYER_HURTBOX_W = 50.0
+private const val PLAYER_HURTBOX_H = 80.0
+private const val PLAYER_MAX_HEALTH = 100
+private const val CHARACTER_DEFAULT_HURTBOX_W = 60.0
+private const val CHARACTER_DEFAULT_HURTBOX_H = 100.0
+
+private val P1_COLOR = Color.Blue
+private val P2_COLOR = Color.Red
+private val FLOOR_COLOR = Color.Green
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
 fun startUI() =
     application {
-        Window(onCloseRequest = ::exitApplication, title = "UFG Demo (engine + WASD)") {
-            MaterialTheme {
-                app()
-            }
+        Window(onCloseRequest = ::exitApplication, title = "UFG – Fighting Game") {
+            MaterialTheme { gameApp() }
         }
     }
+
+// ── Root composable ───────────────────────────────────────────────────────────
 
 @Suppress("Indentation")
 @Composable
-fun app() {
-    var inputState by remember { mutableStateOf(InputState.NONE) }
-    val initialEngine = remember { createInitialEngine() }
-    // Create and start GuiGameRunner once
-    val runner = remember { GuiGameRunner(initialEngine) }
-    LaunchedEffect(Unit) {
-        runner.start()
-    }
+fun gameApp() {
+    val runner = remember { GameRunner(createInitialEngine()) }
+    var gameState by remember { mutableStateOf(runner.stateSnapshot) }
+    var inputMask by remember { mutableStateOf(0) }
+    val focusRequester = remember { FocusRequester() }
 
-    // Poll engine state periodically for UI
-    var state by remember { mutableStateOf(initialEngine.getState()) }
+    LaunchedEffect(Unit) { runner.start() }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(GameConstants.UI_REFRESH_RATE) // UI refresh rate
-            state = runner.getStateSnapshot()
+            delay(UI_POLL_INTERVAL_MS)
+            gameState = runner.stateSnapshot
         }
     }
-
-    val focusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     Box(
@@ -91,154 +109,192 @@ fun app() {
             Modifier
                 .fillMaxSize()
                 .focusRequester(focusRequester)
-                .onKeyEvent { ev ->
-                    val isDown = ev.type == KeyEventType.KeyDown
-                    val before = inputState
-                    inputState = updateInputState(inputState, ev.key, isDown)
-                    if (inputState != before) {
-                        runner.setInput(inputState)
-                        true
-                    } else {
-                        false
-                    }
-                }.focusable()
-                .verticalScroll(rememberScrollState()),
-        contentAlignment = Alignment.Center,
+                .focusable()
+                .onKeyEvent { event ->
+                    val bit = keyToBit(event.key) ?: return@onKeyEvent false
+                    val isDown = event.type == KeyEventType.KeyDown
+                    val newMask = if (isDown) inputMask or bit else inputMask and bit.inv()
+                    if (newMask == inputMask) return@onKeyEvent false
+                    inputMask = newMask
+                    runner.setInput(InputState(newMask))
+                    true
+                },
+        contentAlignment = Alignment.TopCenter,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "Engine frame ${state.frameNumber}",
-                style = MaterialTheme.typography.h5,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-            Text(
-                "Status: ${state.gameStatus}  |  Round: ${state.roundTimer}s",
-                modifier = Modifier.padding(bottom = 16.dp),
-            )
-
-            stageView(state)
-
-            debugPanel(state, inputState)
-
-            Button(onClick = {
-                runner.reset(createInitialEngine())
-                inputState = InputState.NONE
-            }) {
-                Text("Reset")
-            }
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            gameHeader(gameState)
+            stageView(gameState)
+            debugPanel(gameState, InputState(inputMask))
+            Button(
+                modifier = Modifier.padding(top = CONTENT_PADDING_DP.dp),
+                onClick = {
+                    runner.reset()
+                    inputMask = 0
+                },
+            ) { Text("Reset") }
         }
     }
 }
+
+// ── Game header ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun gameHeader(state: GameState) {
+    Column(
+        modifier = Modifier.padding(CONTENT_PADDING_DP.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "Frame ${state.frameNumber}",
+            style = MaterialTheme.typography.h5,
+            fontWeight = FontWeight.Bold,
+        )
+        Text("${state.gameStatus}  |  Timer: ${state.roundTimer}s")
+    }
+}
+
+// ── Stage view ────────────────────────────────────────────────────────────────
 
 @Suppress("Indentation")
 @Composable
 private fun stageView(state: GameState) {
-    val floorBarHeightDp = 5.dp
-
     Card(
         modifier =
             Modifier
                 .size(GameConstants.STAGE_WIDTH.dp, GameConstants.STAGE_HEIGHT.dp)
-                .padding(vertical = 16.dp),
+                .padding(vertical = CONTENT_PADDING_DP.dp),
+        elevation = CARD_ELEVATION_DP.dp,
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize().padding(20.dp),
-            contentAlignment = Alignment.TopStart,
-        ) {
-            // Floor bar at bottom
+        Box(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(floorBarHeightDp)
+                        .height(FLOOR_BAR_HEIGHT_DP.dp)
                         .align(Alignment.BottomStart)
-                        .background(Color.Green),
+                        .background(FLOOR_COLOR),
             )
-
-            state.players.values.forEach { p ->
-                val spriteW = p.hurtBox.width
-                val spriteH = p.hurtBox.height
-
-                val uiX = p.position.x.dp
-                val uiY = (GameConstants.STAGE_HEIGHT - (p.position.y + spriteH)).dp
-
-                Card(
-                    modifier =
-                        Modifier
-                            .size(spriteW.dp, spriteH.dp)
-                            .offset(x = uiX, y = uiY),
-                    backgroundColor = if (p.id == 1) Color.Blue else Color.Red,
-                    elevation = 8.dp,
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("${p.name}\nHP:${p.health.current}", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+            state.players.values.forEach { player -> playerSprite(player) }
         }
     }
 }
+
+// ── Player sprite ─────────────────────────────────────────────────────────────
+
+@Suppress("Indentation")
+@Composable
+private fun playerSprite(player: Player) {
+    val spriteW = player.hurtBox.width
+    val spriteH = player.hurtBox.height
+    val uiX = player.position.x.dp
+    val uiY = (GameConstants.STAGE_HEIGHT - player.position.y - spriteH).dp
+    val color = if (player.id == 1) P1_COLOR else P2_COLOR
+
+    Card(
+        modifier =
+            Modifier
+                .size(spriteW.dp, spriteH.dp)
+                .offset(x = uiX, y = uiY),
+        backgroundColor = color,
+        elevation = CARD_ELEVATION_DP.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = "P${player.id}\n${player.health.current}HP",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+// ── Debug panel ───────────────────────────────────────────────────────────────
 
 @Suppress("Indentation")
 @Composable
 private fun debugPanel(
     state: GameState,
-    inputState: InputState,
+    input: InputState,
 ) {
-    Card(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text("InputState.mask = ${inputState.mask}", style = MaterialTheme.typography.h6)
+    Card(modifier = Modifier.fillMaxWidth().padding(CONTENT_PADDING_DP.dp)) {
+        Column(modifier = Modifier.padding(DEBUG_PADDING_DP.dp)) {
+            Text("Input", style = MaterialTheme.typography.h6)
             Row {
-                Text("A←: ${if (inputState.isPressed(GameButton.LEFT)) "●" else "○"}  ")
-                Text("D→: ${if (inputState.isPressed(GameButton.RIGHT)) "●" else "○"}  ")
-                Text("W↑: ${if (inputState.isPressed(GameButton.UP)) "●" else "○"}  ")
-                Text("S↓: ${if (inputState.isPressed(GameButton.DOWN)) "●" else "○"}")
+                GameButton.entries.forEach { btn ->
+                    Text("${btn.name}: ${if (input.isPressed(btn)) "●" else "○"}  ")
+                }
             }
-            val p1 = state.players[1]
-            if (p1 != null) {
+            state.players[1]?.let { p ->
                 Text(
-                    "P1 Pos=(${p1.position.x.toInt()}, ${p1.position.y.toInt()}) " +
-                        "VelX=${"%.1f".format(p1.nextMove.speedX)} VelY=${"%.1f".format(p1.nextMove.speedY)}",
+                    text =
+                        "P1  x=${p.position.x.toInt()}  y=${p.position.y.toInt()}" +
+                            "  vx=${"%.2f".format(p.nextMove.speedX)}" +
+                            "  vy=${"%.2f".format(p.nextMove.speedY)}",
                 )
             }
         }
     }
 }
 
-// --- Engine / input helpers -------------------------------------------------------------------
-@Suppress("Indentation", "MagicNumber")
+// ── Input mapping ─────────────────────────────────────────────────────────────
+
+private fun keyToBit(key: Key): Int? =
+    when (key) {
+        Key.A -> GameButton.LEFT.bit
+        Key.D -> GameButton.RIGHT.bit
+        Key.W -> GameButton.UP.bit
+        Key.S -> GameButton.DOWN.bit
+        Key.U -> GameButton.PUNCH.bit
+        Key.I -> GameButton.KICK.bit
+        else -> null
+    }
+
+private fun applyInputToState(
+    state: GameState,
+    input: InputState,
+): GameState {
+    val p1 = state.players[1] ?: return state
+    val direction =
+        when {
+            input.isPressed(GameButton.LEFT) -> Direction(-1.0, 0.0)
+            input.isPressed(GameButton.RIGHT) -> Direction(1.0, 0.0)
+            else -> Direction(0.0, 0.0)
+        }
+    return state.copyWithUpdatedPlayer(1, p1.copy(nextMove = p1.nextMove.copy(direction = direction)))
+}
+
+// ── Engine factory ────────────────────────────────────────────────────────────
+
+@Suppress("Indentation")
 private fun createInitialEngine(): GameEngine {
-    val p1 =
+    val character =
+        Character(
+            id = 1,
+            name = "Ryu",
+            maxHealth = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
+            moveList = emptyMap(),
+            defaultHurtbox = Rectangle(0.0, 0.0, CHARACTER_DEFAULT_HURTBOX_W, CHARACTER_DEFAULT_HURTBOX_H),
+        )
+    val player =
         Player(
             id = 1,
-            name = "Player1",
-            position = Position(100.0, 0.0), // floor = 0.0 in your physics
+            name = "P1",
+            position = Position(P1_START_X, 0.0),
             nextMove =
                 Movement(
                     direction = Direction(0.0, 0.0),
-                    position = Position(0.0, 0.0),
+                    position = Position(P1_START_X, 0.0),
                     speedX = 0.0,
                     speedY = 0.0,
                 ),
-            health = Health(100, 100),
-            hurtBox = Rectangle(100.0, 0.0, 50.0, 100.0),
-            character =
-                Character(
-                    id = 1,
-                    name = "Ryu",
-                    maxHealth = Health(100, 100),
-                    moveList = emptyMap(),
-                    defaultHurtbox = Rectangle(0.0, 0.0, 60.0, 120.0),
-                ),
+            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
+            hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
+            character = character,
         )
-
-    val initialState =
-        GameState(
-            frameNumber = 0L,
-            players = mapOf(1 to p1),
-        )
-
+    val initialState = GameState(frameNumber = 0L, players = mapOf(1 to player))
     return GameEngine(
         state = initialState,
         gameLogic = { s, _ -> GameLogic.defaultGameLogic(s) },
@@ -246,88 +302,61 @@ private fun createInitialEngine(): GameEngine {
     )
 }
 
-private fun updateInputState(
-    state: InputState,
-    key: Key,
-    isPressed: Boolean,
-): InputState {
-    val bit =
-        when (key) {
-            Key.A -> GameButton.LEFT.bit
-            Key.D -> GameButton.RIGHT.bit
-            Key.W -> GameButton.UP.bit
-            Key.S -> GameButton.DOWN.bit
-            else -> return state
-        }
-    return if (isPressed) {
-        InputState(state.mask or bit)
-    } else {
-        InputState(state.mask and bit.inv())
-    }
-}
+// ── Game runner ───────────────────────────────────────────────────────────────
 
-// This applies InputState to a GameState (used inside GuiGameRunner)
-private fun applyInputToState(
-    state: GameState,
-    inputState: InputState,
-): GameState {
-    val p1 = state.players[1] ?: return state
-    val dir =
-        when {
-            inputState.isPressed(GameButton.LEFT) -> Direction(-1.0, 0.0)
-            inputState.isPressed(GameButton.RIGHT) -> Direction(1.0, 0.0)
-            else -> Direction(0.0, 0.0)
-        }
-    val updated = p1.copy(nextMove = p1.nextMove.copy(direction = dir))
-    return state.copyWithUpdatedPlayer(1, updated)
-}
-
-// --- Game runner: uses your TimeManager + GameEngine.update on a background thread -----------
-
-class GuiGameRunner(
-    initialEngine: GameEngine,
+/**
+ * Runs the game engine on a dedicated daemon thread and exposes a thread-safe
+ * snapshot of the latest [GameState] for the UI to poll.
+ */
+class GameRunner(
+    private val initialEngine: GameEngine,
 ) {
-    @Volatile
+    private val lock = Any()
     private var engine: GameEngine = initialEngine
 
-    @Volatile
-    private var running = false
+    @Volatile private var input: InputState = InputState.NONE
 
-    @Volatile
-    private var latestInput: InputState = InputState.NONE
+    @Volatile private var running = false
 
-    private val timeManager = TimeManager() // uses your accumulator logic
+    private val timeManager = TimeManager()
+    private val gameLogic: (GameState, Double) -> GameState = { s, _ -> GameLogic.defaultGameLogic(s) }
+    private val physicsSystem: (GameState, Double) -> GameState = PhysicsSystem::update
+
+    val stateSnapshot: GameState
+        get() = synchronized(lock) { engine.getState() }
 
     fun start() {
         if (running) return
         running = true
-        Thread {
-            while (running) {
-                val step = timeManager.update()
-                val stateWithInput = applyInputToState(engine.getState(), latestInput)
-                engine =
-                    GameEngine(
-                        stateWithInput,
-                        { s, _ -> GameLogic.defaultGameLogic(s) },
-                        PhysicsSystem::update,
-                    ).update(step)
-            }
-            println("GuiGameRunner thread stopped")
-        }.start()
+        Thread(::gameLoop, "ufg-game-loop").apply { isDaemon = true }.start()
     }
 
     fun stop() {
         running = false
     }
 
-    fun setInput(input: InputState) {
-        latestInput = input
+    fun setInput(newInput: InputState) {
+        input = newInput
     }
 
-    fun reset(newEngine: GameEngine) {
-        engine = newEngine
-        latestInput = InputState.NONE
-    }
+    fun reset() =
+        synchronized(lock) {
+            engine = initialEngine
+            input = InputState.NONE
+        }
 
-    fun getStateSnapshot(): GameState = engine.getState()
+    private fun tick(step: FixedTimestepResult) =
+        synchronized(lock) {
+            val stateWithInput = applyInputToState(engine.getState(), input)
+            engine = GameEngine(stateWithInput, gameLogic, physicsSystem).update(step)
+        }
+
+    // timeManager.update() may sleep for frame-rate limiting — kept outside the lock
+    // so the UI thread is never blocked waiting for a frame boundary.
+    private fun gameLoop() {
+        while (running) {
+            val step = timeManager.update()
+            tick(step)
+        }
+    }
 }
