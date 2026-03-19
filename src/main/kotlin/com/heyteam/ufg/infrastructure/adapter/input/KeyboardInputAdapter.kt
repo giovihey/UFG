@@ -1,16 +1,14 @@
 package com.heyteam.ufg.infrastructure.adapter.input
 
-import com.heyteam.ufg.application.port.input.InputPort
 import com.heyteam.ufg.domain.model.GameButton
-import com.heyteam.ufg.domain.model.InputState
 import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 
-val defaultKeyMap =
+val defaultKeyMap: Map<Int, GameButton> =
     mapOf(
         KeyEvent.VK_W to GameButton.UP,
-        KeyEvent.VK_S to GameButton.DOWN,
         KeyEvent.VK_A to GameButton.LEFT,
+        KeyEvent.VK_S to GameButton.DOWN,
         KeyEvent.VK_D to GameButton.RIGHT,
         KeyEvent.VK_P to GameButton.PUNCH,
         KeyEvent.VK_K to GameButton.KICK,
@@ -18,29 +16,23 @@ val defaultKeyMap =
 
 class KeyboardInputAdapter(
     private val keyMap: Map<Int, GameButton>,
-) : KeyAdapter(),
-    InputPort {
+) : KeyAdapter() {
     companion object {
         val DEFAULT = KeyboardInputAdapter(defaultKeyMap)
     }
 
-    @Volatile // couldbebug
+    @Volatile
     private var currentBitMask: Int = 0
 
     override fun keyPressed(e: KeyEvent?) {
         val gameButton = keyMap[e?.keyCode] ?: return
-
         currentBitMask = currentBitMask or gameButton.bit
+        println(currentBitMask.toString())
     }
 
     override fun keyReleased(e: KeyEvent?) {
         val gameButton = keyMap[e?.keyCode] ?: return
-
-        // bit.inv(): Turn the bit off when released
         currentBitMask = currentBitMask and gameButton.bit.inv()
+        println("just released: $currentBitMask")
     }
-
-    fun getCurrentInputState(): InputState = InputState(currentBitMask)
-
-    override fun getInputState(player: Int): InputState = getCurrentInputState()
 }
