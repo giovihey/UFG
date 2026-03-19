@@ -1,22 +1,85 @@
 package com.heyteam.ufg
 
-import com.heyteam.ufg.domain.model.GameButton
-import com.heyteam.ufg.infrastructure.adapter.gui.startUI
+import androidx.compose.material.MaterialTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application
+import com.heyteam.ufg.domain.model.Character
+import com.heyteam.ufg.domain.model.Direction
+import com.heyteam.ufg.domain.model.GameState
+import com.heyteam.ufg.domain.model.Health
+import com.heyteam.ufg.domain.model.Movement
+import com.heyteam.ufg.domain.model.Player
+import com.heyteam.ufg.domain.model.Position
+import com.heyteam.ufg.domain.physics.PhysicsSystem
+import com.heyteam.ufg.domain.physics.Rectangle
+import com.heyteam.ufg.domain.service.GameEngine
+import com.heyteam.ufg.domain.service.GameLogic
+import com.heyteam.ufg.domain.service.GameLoop
+import com.heyteam.ufg.domain.service.TimeManager
+import com.heyteam.ufg.infrastructure.adapter.gui.GUIAdapter
+import com.heyteam.ufg.infrastructure.adapter.input.KeyboardInputAdapter
 
-// private const val FRAME_TIME_MS = 1000L
+// ── Initial player / character data ──────────────────────────────────────────
+const val P1_START_X = 100.0
+const val PLAYER_HURTBOX_W = 50.0
+const val PLAYER_HURTBOX_H = 80.0
+const val PLAYER_MAX_HEALTH = 100
+const val CHARACTER_DEFAULT_HURTBOX_W = 60.0
+const val CHARACTER_DEFAULT_HURTBOX_H = 100.0
 
 fun main() {
-    fun Int.getActivatedButtons(): Set<GameButton> = GameButton.entries.filter { (this and it.bit) != 0 }.toSet()
-    println("Fight in UFG")
-    // val input: KeyboardInputAdapter = KeyboardInputAdapter.DEFAULT
+    val inputAdapter = KeyboardInputAdapter.DEFAULT
+    val guiAdapter = GUIAdapter()
 
-    startUI()
+    val gameLoop =
+        GameLoop(
+            timeManager = TimeManager(),
+            gameEngine = createInitialEngine(),
+            inputPort = inputAdapter,
+            renderPort = guiAdapter,
+        )
 
-//    while (true) {
-//        val currInput = input.getCurrentInputState()
-//        println(currInput.mask)
-//        val activeButtons = currInput.mask.getActivatedButtons()
-//        println("Pulsanti premuti: ${activeButtons.joinToString(", ") { it.name }}")
-//        Thread.sleep(FRAME_TIME_MS)
-//    }
+    Thread(gameLoop::start, "game-loop").apply { isDaemon = true }.start()
+
+    application {
+        Window(onCloseRequest = ::exitApplication, title = "UFG – Fighting Game") {
+            LaunchedEffect(Unit) { window.addKeyListener(inputAdapter) }
+            MaterialTheme { guiAdapter.gameApp() }
+        }
+    }
+}
+
+@Suppress("Indentation")
+fun createInitialEngine(): GameEngine {
+    val character =
+        Character(
+            id = 1,
+            name = "Ryu",
+            maxHealth = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
+            moveList = emptyMap(),
+            defaultHurtbox = Rectangle(0.0, 0.0, CHARACTER_DEFAULT_HURTBOX_W, CHARACTER_DEFAULT_HURTBOX_H),
+        )
+    val player =
+        Player(
+            id = 1,
+            name = "P1",
+            position = Position(P1_START_X, 0.0),
+            nextMove =
+                Movement(
+                    direction = Direction(0.0, 0.0),
+                    position = Position(P1_START_X, 0.0),
+                    speedX = 0.0,
+                    speedY = 0.0,
+                ),
+            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
+            hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
+            character = character,
+        )
+    val initialState = GameState(frameNumber = 0L, players = mapOf(1 to player))
+    return GameEngine(
+        state = initialState,
+        gameLogic = { s, _ -> GameLogic.defaultGameLogic(s) },
+        physicsSystem = PhysicsSystem::update,
+    )
 }

@@ -1,50 +1,44 @@
 package com.heyteam.ufg.domain.service
 
+import com.heyteam.ufg.application.port.input.InputPort
+import com.heyteam.ufg.domain.model.Direction
+import com.heyteam.ufg.domain.model.GameButton
+import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.GameStatus
+import com.heyteam.ufg.domain.model.InputState
+import com.heyteam.ufg.domain.model.RenderPort
 
 class GameLoop(
     private val timeManager: TimeManager,
     private var gameEngine: GameEngine,
+    private val inputPort: InputPort,
+    private val renderPort: RenderPort,
 ) {
-    private var isRunning = false
-
     fun start() {
-        isRunning = true
-        println("UFG Fighting Game Loop Started (60 FPS)")
-
+        var isRunning = true
         while (isRunning) {
-            val deltaTime = timeManager.update()
-            gameEngine = gameEngine.update(deltaTime)
-            render()
-
-            // Exit after round end
+            val step = timeManager.update()
+            val nextState = applyInputToState(gameEngine.getState(), inputPort.getInputState(1))
+            gameEngine = gameEngine.withState(nextState).update(step)
+            renderPort.render(gameEngine.getState())
             if (gameEngine.getState().gameStatus == GameStatus.ROUND_END) {
-                Thread.sleep(GameConstants.ROUND_END_DELAY_MS)
-                stop()
+                isRunning = false
+                println("Match is over")
             }
         }
     }
 
-    fun render() {
-        val state = gameEngine.getState()
-        println("\n=== FRAME ${state.frameNumber} (${timeManager.getFPS()} FPS) ===")
-        println("⏱️  Round: ${state.roundTimer}s | ${state.gameStatus}")
-
-        state.players.forEach { (id, player) ->
-            val status = if (player.health.current <= 0) "💀" else "❤️"
-            val moveDir = player.nextMove.direction
-            println(
-                "P$id $status ${player.name} | HP=${player.health.current}/${player.health.max} | Pos=(${"%.1f".format(
-                    player.position.x,
-                )}, ${"%.1f".format(player.position.y)}) | Move=$moveDir",
-            )
-        }
-
-        if (state.hitStopFrames > 0) println("⏸️  HIT STOP: ${state.hitStopFrames}f")
-    }
-
-    fun stop() {
-        isRunning = false
-        println("Match Over!")
+    private fun applyInputToState(
+        state: GameState,
+        input: InputState,
+    ): GameState {
+        val p1 = state.players[1] ?: return state
+        val direction =
+            when {
+                input.isPressed(GameButton.LEFT) -> Direction(-1.0, 0.0)
+                input.isPressed(GameButton.RIGHT) -> Direction(1.0, 0.0)
+                else -> Direction(0.0, 0.0)
+            }
+        return state.copyWithUpdatedPlayer(1, p1.copy(nextMove = p1.nextMove.copy(direction = direction)))
     }
 }
