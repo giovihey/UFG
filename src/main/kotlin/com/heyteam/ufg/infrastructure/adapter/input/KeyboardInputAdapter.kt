@@ -1,5 +1,6 @@
 package com.heyteam.ufg.infrastructure.adapter.input
 
+import com.heyteam.ufg.application.port.input.InputPort
 import com.heyteam.ufg.domain.model.GameButton
 import com.heyteam.ufg.domain.model.InputState
 import java.awt.event.KeyAdapter
@@ -17,7 +18,8 @@ val defaultKeyMap =
 
 class KeyboardInputAdapter(
     private val keyMap: Map<Int, GameButton>,
-) : KeyAdapter() {
+) : KeyAdapter(),
+    InputPort {
     companion object {
         val DEFAULT = KeyboardInputAdapter(defaultKeyMap)
     }
@@ -39,4 +41,6 @@ class KeyboardInputAdapter(
     }
 
     fun getCurrentInputState(): InputState = InputState(currentBitMask)
+
+    override fun getInputState(player: Int): InputState = getCurrentInputState()
 }

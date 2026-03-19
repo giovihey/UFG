@@ -10,6 +10,8 @@ class GameEngine(
 ) {
     fun getState(): GameState = state
 
+    fun withState(newState: GameState): GameEngine = GameEngine(newState, gameLogic, physicsSystem)
+
     fun update(timeStep: FixedTimestepResult): GameEngine {
         val (_, steps, fixedDt) = timeStep
         var newState = state
