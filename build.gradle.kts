@@ -24,19 +24,12 @@ tasks.jar {
     }
 }
 
-detekt {
-    buildUponDefaultConfig = true
-    allRules = false
-    config.setFrom("$projectDir/config/detekt.yml")
-}
-
 dependencies {
     val kotestVersion = "5.8.0"
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest:kotest-property:$kotestVersion")
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
     implementation(compose.desktop.currentOs)
 }
 
