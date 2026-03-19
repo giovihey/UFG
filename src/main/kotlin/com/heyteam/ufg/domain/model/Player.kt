@@ -9,5 +9,4 @@ data class Player(
     val nextMove: Movement,
     val health: Health,
     val hurtBox: Rectangle,
-    val character: Character,
 )

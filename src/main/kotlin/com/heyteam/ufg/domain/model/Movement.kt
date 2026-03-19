@@ -5,6 +5,4 @@ data class Movement(
     val position: Position,
     val speedX: Double,
     val speedY: Double,
-    val accelerationX: Double = 0.0,
-    val accelerationY: Double = 0.0,
 )

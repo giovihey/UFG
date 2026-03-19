@@ -45,8 +45,8 @@ object PhysicsSystem {
         val newY = player.position.y + newVelY * dt
 
         // Stage bounds
-        val stageRight = state.stageWidth - GameConstants.STAGE_MARGIN
-        val floorY = state.floorY // floor is at this Y (positive‑down)
+        val stageRight = state.stageBounds.width - GameConstants.STAGE_MARGIN
+        val floorY = state.stageBounds.y // floor is at this Y (positive‑down)
 
         val finalXF = newX.coerceIn(0.0, stageRight)
 
@@ -69,8 +69,6 @@ object PhysicsSystem {
                 player.nextMove.copy(
                     speedX = frictionVelX,
                     speedY = frictionVelY,
-                    accelerationX = accelX,
-                    accelerationY = GameConstants.GRAVITY,
                 ),
             hurtBox = newHurtBox,
         )
