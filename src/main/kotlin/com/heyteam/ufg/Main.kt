@@ -1,9 +1,5 @@
 package com.heyteam.ufg
 
-import androidx.compose.material.MaterialTheme
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.application
 import com.heyteam.ufg.domain.model.Direction
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.Health
@@ -36,12 +32,7 @@ fun main() {
 
     Thread(gameLoop::start, "game-loop").apply { isDaemon = true }.start()
 
-    application {
-        Window(onCloseRequest = ::exitApplication, title = "UFG – Fighting Game") {
-            LaunchedEffect(Unit) { window.addKeyListener(inputAdapter) }
-            MaterialTheme { guiAdapter.gameApp() }
-        }
-    }
+    guiAdapter.startUI()
 }
 
 @Suppress("Indentation")
