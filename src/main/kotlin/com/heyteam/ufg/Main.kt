@@ -9,6 +9,7 @@ import com.heyteam.ufg.domain.model.Position
 import com.heyteam.ufg.domain.physics.PhysicsSystem
 import com.heyteam.ufg.domain.physics.Rectangle
 import com.heyteam.ufg.domain.service.GameEngine
+import com.heyteam.ufg.domain.service.GameLogic
 import com.heyteam.ufg.domain.service.GameLoop
 import com.heyteam.ufg.infrastructure.adapter.gui.GUIAdapter
 import com.heyteam.ufg.infrastructure.adapter.input.KeyboardInputAdapter
@@ -55,7 +56,7 @@ fun createInitialEngine(): GameEngine {
     val initialState = GameState(frameNumber = 0L, players = mapOf(1 to player))
     return GameEngine(
         state = initialState,
-        gameLogic = { s, _ -> s },
+        gameLogic = { s, _ -> GameLogic.defaultGameLogic(s) },
         physicsSystem = PhysicsSystem::update,
     )
 }
