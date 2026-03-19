@@ -14,6 +14,7 @@ object GameConstants {
     // Timing
     const val TARGET_FPS = 60
     const val MS_PER_SECOND = 1000.0
+    const val MILLIS_FOR_FPS: Long = 6
 
     // Game Loop
     const val ROUND_END_DELAY_MS = 2000L // 2 seconds

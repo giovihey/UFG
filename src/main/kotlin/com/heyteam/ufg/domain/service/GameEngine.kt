@@ -18,19 +18,9 @@ class GameEngine(
 
         // Fixed timestep physics loop (passed from TimeManager)
         repeat(steps) {
-            newState =
-                if (newState.hitStopFrames > 0) {
-                    newState.copyWithHitStop(newState.hitStopFrames - 1)
-                } else {
-                    physicsSystem(newState, fixedDt)
-                }
-
-            newState =
-                if (newState.hitStopFrames == 0) {
-                    gameLogic(newState, fixedDt)
-                } else {
-                    newState.copyWithFrameIncrement()
-                }
+            newState = physicsSystem(newState, fixedDt)
+            newState = gameLogic(newState, fixedDt)
+            newState = newState.copyWithFrameIncrement()
         }
 
         return GameEngine(newState, gameLogic, physicsSystem)

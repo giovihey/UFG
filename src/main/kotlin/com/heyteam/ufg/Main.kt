@@ -4,7 +4,6 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import com.heyteam.ufg.domain.model.Character
 import com.heyteam.ufg.domain.model.Direction
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.Health
@@ -14,9 +13,7 @@ import com.heyteam.ufg.domain.model.Position
 import com.heyteam.ufg.domain.physics.PhysicsSystem
 import com.heyteam.ufg.domain.physics.Rectangle
 import com.heyteam.ufg.domain.service.GameEngine
-import com.heyteam.ufg.domain.service.GameLogic
 import com.heyteam.ufg.domain.service.GameLoop
-import com.heyteam.ufg.domain.service.TimeManager
 import com.heyteam.ufg.infrastructure.adapter.gui.GUIAdapter
 import com.heyteam.ufg.infrastructure.adapter.input.KeyboardInputAdapter
 
@@ -25,8 +22,6 @@ const val P1_START_X = 100.0
 const val PLAYER_HURTBOX_W = 50.0
 const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
-const val CHARACTER_DEFAULT_HURTBOX_W = 60.0
-const val CHARACTER_DEFAULT_HURTBOX_H = 100.0
 
 fun main() {
     val inputAdapter = KeyboardInputAdapter.DEFAULT
@@ -34,7 +29,6 @@ fun main() {
 
     val gameLoop =
         GameLoop(
-            timeManager = TimeManager(),
             gameEngine = createInitialEngine(),
             inputPort = inputAdapter,
             renderPort = guiAdapter,
@@ -52,14 +46,6 @@ fun main() {
 
 @Suppress("Indentation")
 fun createInitialEngine(): GameEngine {
-    val character =
-        Character(
-            id = 1,
-            name = "Ryu",
-            maxHealth = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
-            moveList = emptyMap(),
-            defaultHurtbox = Rectangle(0.0, 0.0, CHARACTER_DEFAULT_HURTBOX_W, CHARACTER_DEFAULT_HURTBOX_H),
-        )
     val player =
         Player(
             id = 1,
@@ -74,12 +60,11 @@ fun createInitialEngine(): GameEngine {
                 ),
             health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
             hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
-            character = character,
         )
     val initialState = GameState(frameNumber = 0L, players = mapOf(1 to player))
     return GameEngine(
         state = initialState,
-        gameLogic = { s, _ -> GameLogic.defaultGameLogic(s) },
+        gameLogic = { s, _ -> s },
         physicsSystem = PhysicsSystem::update,
     )
 }

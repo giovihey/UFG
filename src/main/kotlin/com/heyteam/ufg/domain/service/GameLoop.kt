@@ -7,9 +7,10 @@ import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.GameStatus
 import com.heyteam.ufg.domain.model.InputState
 import com.heyteam.ufg.domain.model.RenderPort
+import com.heyteam.ufg.domain.service.GameConstants.MILLIS_FOR_FPS
+import com.heyteam.ufg.domain.service.GameConstants.TARGET_FPS
 
 class GameLoop(
-    private val timeManager: TimeManager,
     private var gameEngine: GameEngine,
     private val inputPort: InputPort,
     private val renderPort: RenderPort,
@@ -17,7 +18,7 @@ class GameLoop(
     fun start() {
         var isRunning = true
         while (isRunning) {
-            val step = timeManager.update()
+            val step = FixedTimestepResult(1.0 / TARGET_FPS, 1, 1.0 / TARGET_FPS)
             val nextState = applyInputToState(gameEngine.getState(), inputPort.getInputState(1))
             gameEngine = gameEngine.withState(nextState).update(step)
             renderPort.render(gameEngine.getState())
@@ -25,6 +26,7 @@ class GameLoop(
                 isRunning = false
                 println("Match is over")
             }
+            Thread.sleep(MILLIS_FOR_FPS)
         }
     }
 
