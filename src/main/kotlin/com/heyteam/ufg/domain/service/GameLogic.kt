@@ -3,6 +3,7 @@ package com.heyteam.ufg.domain.service
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.GameStatus
 
+// these are pure rules
 @Suppress("UtilityClassWithPublicConstructor")
 class GameLogic {
     companion object {
