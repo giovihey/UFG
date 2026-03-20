@@ -1,6 +1,7 @@
 package com.heyteam.ufg
 
-import com.heyteam.ufg.application.port.input.KeyboardInputPort
+import com.heyteam.ufg.application.service.GameEngine
+import com.heyteam.ufg.application.service.GameLoop
 import com.heyteam.ufg.domain.model.Direction
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.Health
@@ -9,10 +10,8 @@ import com.heyteam.ufg.domain.model.Player
 import com.heyteam.ufg.domain.model.Position
 import com.heyteam.ufg.domain.physics.PhysicsSystem
 import com.heyteam.ufg.domain.physics.Rectangle
-import com.heyteam.ufg.domain.service.GameEngine
 import com.heyteam.ufg.domain.service.GameLogic
-import com.heyteam.ufg.domain.service.GameLoop
-import com.heyteam.ufg.infrastructure.adapter.gui.GUIAdapter
+import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 
 // ── Initial player / character data ──────────────────────────────────────────
 const val P1_START_X = 100.0
@@ -21,19 +20,19 @@ const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
 
 fun main() {
-    val keyboardInputPort = KeyboardInputPort()
-    val guiAdapter = GUIAdapter(keyboardInputPort)
+    var currentBitMask = 0
+    val composeAdapter = ComposeAdapter(currentBitMask)
 
     val gameLoop =
         GameLoop(
             gameEngine = createInitialEngine(),
-            inputPort = keyboardInputPort,
-            renderPort = guiAdapter,
+            inputPort = composeAdapter,
+            renderPort = composeAdapter,
         )
 
     Thread(gameLoop::start, "game-loop").apply { isDaemon = true }.start()
 
-    guiAdapter.startUI()
+    composeAdapter.startUI()
 }
 
 @Suppress("Indentation")

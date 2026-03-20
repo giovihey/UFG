@@ -1,7 +1,8 @@
-package com.heyteam.ufg.domain.service
+package com.heyteam.ufg.application.service
 
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.physics.PhysicsSystem
+import com.heyteam.ufg.domain.service.FixedTimestepResult
 
 class GameEngine(
     private val state: GameState,

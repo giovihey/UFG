@@ -26,11 +26,13 @@ import androidx.compose.ui.window.rememberWindowState
 import com.heyteam.ufg.application.port.input.KeyboardInputPort
 import com.heyteam.ufg.domain.model.GameButton
 import com.heyteam.ufg.domain.model.GameState
+import com.heyteam.ufg.domain.model.InputState
 import com.heyteam.ufg.domain.model.RenderPort
 
-class GUIAdapter(
-    private val keyboardInputPort: KeyboardInputPort,
-) : RenderPort {
+class ComposeAdapter(
+    private var currentBitMask: Int = 0,
+) : RenderPort,
+    KeyboardInputPort {
     @Volatile private var latestState: GameState? = null
 
     override fun render(state: GameState) {
@@ -63,8 +65,8 @@ class GUIAdapter(
                     val button = defaultKeyMap[event.key]
                     if (button != null) {
                         when (event.type) {
-                            KeyEventType.KeyDown -> keyboardInputPort.press(button)
-                            KeyEventType.KeyUp -> keyboardInputPort.release(button)
+                            KeyEventType.KeyDown -> press(button)
+                            KeyEventType.KeyUp -> release(button)
                         }
                         true
                     } else {
@@ -107,4 +109,14 @@ class GUIAdapter(
             Text("Count is now: $count")
         }
     }
+
+    override fun press(button: GameButton) {
+        currentBitMask = currentBitMask or button.bit
+    }
+
+    override fun release(button: GameButton) {
+        currentBitMask = currentBitMask and button.bit
+    }
+
+    override fun pollInputState(player: Int): InputState = InputState(currentBitMask)
 }
