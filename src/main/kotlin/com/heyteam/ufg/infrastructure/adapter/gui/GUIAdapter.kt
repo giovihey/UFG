@@ -13,21 +13,39 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.heyteam.ufg.application.port.input.KeyboardInputPort
+import com.heyteam.ufg.domain.model.GameButton
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.RenderPort
 
-class GUIAdapter : RenderPort {
+class GUIAdapter(
+    private val keyboardInputPort: KeyboardInputPort,
+) : RenderPort {
     @Volatile private var latestState: GameState? = null
 
     override fun render(state: GameState) {
         latestState = state
     }
+
+    private val defaultKeyMap: Map<Key, GameButton> =
+        mapOf(
+            Key.W to GameButton.UP,
+            Key.A to GameButton.LEFT,
+            Key.S to GameButton.DOWN,
+            Key.D to GameButton.RIGHT,
+            Key.P to GameButton.PUNCH,
+            Key.K to GameButton.KICK,
+        )
 
     fun startUI() =
         application {
@@ -41,6 +59,18 @@ class GUIAdapter : RenderPort {
                 onCloseRequest = ::exitApplication,
                 title = "My App",
                 state = windowState,
+                onPreviewKeyEvent = { event ->
+                    val button = defaultKeyMap[event.key]
+                    if (button != null) {
+                        when (event.type) {
+                            KeyEventType.KeyDown -> keyboardInputPort.press(button)
+                            KeyEventType.KeyUp -> keyboardInputPort.release(button)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                },
             ) {
                 gameApp()
             }

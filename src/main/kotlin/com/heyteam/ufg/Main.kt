@@ -1,5 +1,6 @@
 package com.heyteam.ufg
 
+import com.heyteam.ufg.application.port.input.KeyboardInputPort
 import com.heyteam.ufg.domain.model.Direction
 import com.heyteam.ufg.domain.model.GameState
 import com.heyteam.ufg.domain.model.Health
@@ -12,7 +13,6 @@ import com.heyteam.ufg.domain.service.GameEngine
 import com.heyteam.ufg.domain.service.GameLogic
 import com.heyteam.ufg.domain.service.GameLoop
 import com.heyteam.ufg.infrastructure.adapter.gui.GUIAdapter
-import com.heyteam.ufg.infrastructure.adapter.input.KeyboardInputAdapter
 
 // ── Initial player / character data ──────────────────────────────────────────
 const val P1_START_X = 100.0
@@ -21,13 +21,13 @@ const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
 
 fun main() {
-    val inputAdapter = KeyboardInputAdapter.DEFAULT
-    val guiAdapter = GUIAdapter()
+    val keyboardInputPort = KeyboardInputPort()
+    val guiAdapter = GUIAdapter(keyboardInputPort)
 
     val gameLoop =
         GameLoop(
             gameEngine = createInitialEngine(),
-            inputPort = inputAdapter,
+            inputPort = keyboardInputPort,
             renderPort = guiAdapter,
         )
 
