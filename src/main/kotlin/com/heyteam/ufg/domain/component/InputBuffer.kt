@@ -1,4 +1,6 @@
-package com.heyteam.ufg.domain.entity
+package com.heyteam.ufg.domain.component
+
+import com.heyteam.ufg.domain.component.GameButton
 
 class InputBuffer(
     private val capacity: Int = 60,

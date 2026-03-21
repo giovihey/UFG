@@ -1,6 +1,6 @@
-package com.heyteam.ufg.domain.service
+package com.heyteam.ufg.application.service
 
-import com.heyteam.ufg.domain.entity.GameConstants
+import com.heyteam.ufg.domain.config.GameConstants
 
 class TimeManager(
     targetFPS: Int = GameConstants.TARGET_FPS,

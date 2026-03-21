@@ -2,12 +2,12 @@ package com.heyteam.ufg.application.service
 
 import com.heyteam.ufg.application.port.input.KeyboardInputPort
 import com.heyteam.ufg.application.port.output.RenderPort
-import com.heyteam.ufg.domain.entity.Direction
-import com.heyteam.ufg.domain.entity.GameButton
-import com.heyteam.ufg.domain.entity.GameState
-import com.heyteam.ufg.domain.entity.GameStatus
-import com.heyteam.ufg.domain.entity.InputState
-import com.heyteam.ufg.domain.service.TimeManager
+import com.heyteam.ufg.application.service.TimeManager
+import com.heyteam.ufg.domain.component.Direction
+import com.heyteam.ufg.domain.component.GameButton
+import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.entity.World
 
 class GameLoop(
     private var gameEngine: GameEngine,
@@ -31,9 +31,9 @@ class GameLoop(
     }
 
     private fun applyInputToState(
-        state: GameState,
+        state: World,
         input: InputState,
-    ): GameState {
+    ): World {
         when {
             input.isPressed(GameButton.LEFT) -> println("LEFT")
             input.isPressed(GameButton.DOWN) -> println("DOWN")

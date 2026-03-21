@@ -1,18 +1,18 @@
 package com.heyteam.ufg.domain.system
 
-import com.heyteam.ufg.domain.entity.Direction
-import com.heyteam.ufg.domain.entity.GameConstants
-import com.heyteam.ufg.domain.entity.GameState
-import com.heyteam.ufg.domain.entity.GameStatus
+import com.heyteam.ufg.domain.component.Direction
+import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.Position
+import com.heyteam.ufg.domain.config.GameConstants
 import com.heyteam.ufg.domain.entity.Player
-import com.heyteam.ufg.domain.entity.Position
+import com.heyteam.ufg.domain.entity.World
 
 @Suppress("Indentation")
 object PhysicsSystem {
     fun update(
-        state: GameState,
+        state: World,
         dt: Double,
-    ): GameState {
+    ): World {
         if (state.gameStatus != GameStatus.RUNNING) return state
 
         val updatedPlayers =
@@ -25,7 +25,7 @@ object PhysicsSystem {
 
     private fun updatePlayerPhysics(
         player: Player,
-        state: GameState,
+        state: World,
         dt: Double,
     ): Player {
         // Horizontal acceleration from input

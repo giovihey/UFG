@@ -2,15 +2,15 @@ package com.heyteam.ufg
 
 import com.heyteam.ufg.application.service.GameEngine
 import com.heyteam.ufg.application.service.GameLoop
-import com.heyteam.ufg.domain.entity.Direction
-import com.heyteam.ufg.domain.entity.GameState
-import com.heyteam.ufg.domain.entity.Health
-import com.heyteam.ufg.domain.entity.Movement
+import com.heyteam.ufg.application.service.TimeManager
+import com.heyteam.ufg.domain.component.Direction
+import com.heyteam.ufg.domain.component.Health
+import com.heyteam.ufg.domain.component.Movement
+import com.heyteam.ufg.domain.component.Position
+import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.entity.Player
-import com.heyteam.ufg.domain.entity.Position
-import com.heyteam.ufg.domain.entity.Rectangle
-import com.heyteam.ufg.domain.service.GameLogic
-import com.heyteam.ufg.domain.service.TimeManager
+import com.heyteam.ufg.domain.entity.World
+import com.heyteam.ufg.domain.system.GameLogicSystem
 import com.heyteam.ufg.domain.system.PhysicsSystem
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 
@@ -55,10 +55,10 @@ fun createInitialEngine(): GameEngine {
             health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
             hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
         )
-    val initialState = GameState(frameNumber = 0L, players = mapOf(1 to player))
+    val initialState = World(frameNumber = 0L, players = mapOf(1 to player))
     return GameEngine(
         state = initialState,
-        gameLogic = { s, _ -> GameLogic.defaultGameLogic(s) },
+        gameLogic = { s, _ -> GameLogicSystem.defaultGameLogic(s) },
         physicsSystem = PhysicsSystem::update,
     )
 }

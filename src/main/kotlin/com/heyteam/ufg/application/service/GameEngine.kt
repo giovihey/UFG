@@ -1,17 +1,16 @@
 package com.heyteam.ufg.application.service
 
-import com.heyteam.ufg.domain.entity.GameState
-import com.heyteam.ufg.domain.service.FixedTimestepResult
+import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.domain.system.PhysicsSystem
 
 class GameEngine(
-    private val state: GameState,
-    private val gameLogic: (GameState, Double) -> GameState,
-    private val physicsSystem: (GameState, Double) -> GameState = PhysicsSystem::update,
+    private val state: World,
+    private val gameLogic: (World, Double) -> World,
+    private val physicsSystem: (World, Double) -> World = PhysicsSystem::update,
 ) {
-    fun getState(): GameState = state
+    fun getState(): World = state
 
-    fun withState(newState: GameState): GameEngine = GameEngine(newState, gameLogic, physicsSystem)
+    fun withState(newState: World): GameEngine = GameEngine(newState, gameLogic, physicsSystem)
 
     fun update(timeStep: FixedTimestepResult): GameEngine {
         val (_, steps, fixedDt) = timeStep

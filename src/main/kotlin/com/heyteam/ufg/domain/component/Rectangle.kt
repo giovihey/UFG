@@ -1,4 +1,4 @@
-package com.heyteam.ufg.domain.entity
+package com.heyteam.ufg.domain.component
 
 data class Rectangle(
     val x: Double,

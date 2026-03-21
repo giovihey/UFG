@@ -25,18 +25,18 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.heyteam.ufg.application.port.input.KeyboardInputPort
 import com.heyteam.ufg.application.port.output.RenderPort
-import com.heyteam.ufg.domain.entity.GameButton
-import com.heyteam.ufg.domain.entity.GameState
-import com.heyteam.ufg.domain.entity.InputState
+import com.heyteam.ufg.domain.component.GameButton
+import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.entity.World
 
 class ComposeAdapter(
     private var currentBitMask: Int,
 ) : RenderPort,
     KeyboardInputPort {
-    @Volatile private var latestState: GameState? = null
+    @Volatile private var latestState: World? = null
 
-    override fun render(gameState: GameState) {
-        latestState = gameState
+    override fun render(world: World) {
+        latestState = world
     }
 
     private val defaultKeyMap: Map<Key, GameButton> =

@@ -1,6 +1,6 @@
 package com.heyteam.ufg.domain.physics
 
-import com.heyteam.ufg.domain.entity.Rectangle
+import com.heyteam.ufg.domain.component.Rectangle
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
