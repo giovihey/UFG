@@ -1,4 +1,4 @@
-package com.heyteam.ufg.domain.service
+package com.heyteam.ufg.domain.entity
 
 // Game Configuration Constants
 object GameConstants {

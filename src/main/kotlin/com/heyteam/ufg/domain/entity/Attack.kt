@@ -1,6 +1,5 @@
-package com.heyteam.ufg.domain.model
+package com.heyteam.ufg.domain.entity
 
-import com.heyteam.ufg.domain.physics.Rectangle
 import java.awt.Button
 
 data class Attack(

@@ -1,8 +1,7 @@
-package com.heyteam.ufg.domain.model
+package com.heyteam.ufg.domain.entity
 
-import com.heyteam.ufg.domain.physics.Rectangle
-import com.heyteam.ufg.domain.service.GameConstants.STAGE_HEIGHT
-import com.heyteam.ufg.domain.service.GameConstants.STAGE_WIDTH
+import com.heyteam.ufg.domain.entity.GameConstants.STAGE_HEIGHT
+import com.heyteam.ufg.domain.entity.GameConstants.STAGE_WIDTH
 
 data class GameState(
     val frameNumber: Long,
@@ -29,11 +28,4 @@ data class GameState(
     fun copyWithUpdatedPlayers(updatedPlayers: Map<Int, Player>): GameState = copy(players = updatedPlayers)
 
     fun copyWithFrameIncrement(): GameState = copy(frameNumber = frameNumber + 1)
-}
-
-enum class GameStatus {
-    RUNNING,
-    PAUSED,
-    ROUND_END,
-    MATCH_END,
 }

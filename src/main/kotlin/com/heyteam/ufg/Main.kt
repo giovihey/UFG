@@ -2,15 +2,16 @@ package com.heyteam.ufg
 
 import com.heyteam.ufg.application.service.GameEngine
 import com.heyteam.ufg.application.service.GameLoop
-import com.heyteam.ufg.domain.model.Direction
-import com.heyteam.ufg.domain.model.GameState
-import com.heyteam.ufg.domain.model.Health
-import com.heyteam.ufg.domain.model.Movement
-import com.heyteam.ufg.domain.model.Player
-import com.heyteam.ufg.domain.model.Position
-import com.heyteam.ufg.domain.physics.PhysicsSystem
-import com.heyteam.ufg.domain.physics.Rectangle
+import com.heyteam.ufg.domain.entity.Direction
+import com.heyteam.ufg.domain.entity.GameState
+import com.heyteam.ufg.domain.entity.Health
+import com.heyteam.ufg.domain.entity.Movement
+import com.heyteam.ufg.domain.entity.Player
+import com.heyteam.ufg.domain.entity.Position
+import com.heyteam.ufg.domain.entity.Rectangle
 import com.heyteam.ufg.domain.service.GameLogic
+import com.heyteam.ufg.domain.service.TimeManager
+import com.heyteam.ufg.domain.system.PhysicsSystem
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 
 // ── Initial player / character data ──────────────────────────────────────────
@@ -22,12 +23,14 @@ const val PLAYER_MAX_HEALTH = 100
 fun main() {
     var currentBitMask = 0
     val composeAdapter = ComposeAdapter(currentBitMask)
+    val timeManager = TimeManager()
 
     val gameLoop =
         GameLoop(
             gameEngine = createInitialEngine(),
             inputPort = composeAdapter,
             renderPort = composeAdapter,
+            timeManager = timeManager,
         )
 
     Thread(gameLoop::start, "game-loop").apply { isDaemon = true }.start()

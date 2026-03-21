@@ -24,19 +24,19 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.heyteam.ufg.application.port.input.KeyboardInputPort
-import com.heyteam.ufg.domain.model.GameButton
-import com.heyteam.ufg.domain.model.GameState
-import com.heyteam.ufg.domain.model.InputState
-import com.heyteam.ufg.domain.model.RenderPort
+import com.heyteam.ufg.application.port.output.RenderPort
+import com.heyteam.ufg.domain.entity.GameButton
+import com.heyteam.ufg.domain.entity.GameState
+import com.heyteam.ufg.domain.entity.InputState
 
 class ComposeAdapter(
-    private var currentBitMask: Int = 0,
+    private var currentBitMask: Int,
 ) : RenderPort,
     KeyboardInputPort {
     @Volatile private var latestState: GameState? = null
 
-    override fun render(state: GameState) {
-        latestState = state
+    override fun render(gameState: GameState) {
+        latestState = gameState
     }
 
     private val defaultKeyMap: Map<Key, GameButton> =
@@ -115,7 +115,7 @@ class ComposeAdapter(
     }
 
     override fun release(button: GameButton) {
-        currentBitMask = currentBitMask and button.bit
+        currentBitMask = currentBitMask and button.bit.inv()
     }
 
     override fun pollInputState(player: Int): InputState = InputState(currentBitMask)

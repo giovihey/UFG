@@ -1,6 +1,4 @@
-package com.heyteam.ufg.domain.model
-
-import com.heyteam.ufg.domain.physics.Rectangle
+package com.heyteam.ufg.domain.entity
 
 data class Player(
     val id: Int,

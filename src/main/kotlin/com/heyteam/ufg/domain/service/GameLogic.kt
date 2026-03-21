@@ -1,7 +1,7 @@
 package com.heyteam.ufg.domain.service
 
-import com.heyteam.ufg.domain.model.GameState
-import com.heyteam.ufg.domain.model.GameStatus
+import com.heyteam.ufg.domain.entity.GameState
+import com.heyteam.ufg.domain.entity.GameStatus
 
 // these are pure rules
 @Suppress("UtilityClassWithPublicConstructor")

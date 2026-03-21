@@ -1,4 +1,4 @@
-package com.heyteam.ufg.domain.model
+package com.heyteam.ufg.domain.entity
 
 data class Movement(
     val direction: Direction,

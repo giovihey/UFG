@@ -1,7 +1,7 @@
 package com.heyteam.ufg.application.port.input
 
-import com.heyteam.ufg.domain.model.GameButton
-import com.heyteam.ufg.domain.model.InputState
+import com.heyteam.ufg.domain.entity.GameButton
+import com.heyteam.ufg.domain.entity.InputState
 
 interface KeyboardInputPort {
     fun press(button: GameButton)
