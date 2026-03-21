@@ -1,4 +1,4 @@
-package com.heyteam.ufg.domain.model
+package com.heyteam.ufg.domain.entity
 
 import io.kotest.core.spec.style.StringSpec
 

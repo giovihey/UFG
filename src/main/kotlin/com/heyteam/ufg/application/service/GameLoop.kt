@@ -1,27 +1,24 @@
 package com.heyteam.ufg.application.service
 
 import com.heyteam.ufg.application.port.input.KeyboardInputPort
-import com.heyteam.ufg.domain.model.Direction
-import com.heyteam.ufg.domain.model.GameButton
-import com.heyteam.ufg.domain.model.GameState
-import com.heyteam.ufg.domain.model.GameStatus
-import com.heyteam.ufg.domain.model.InputState
-import com.heyteam.ufg.domain.model.RenderPort
-import com.heyteam.ufg.domain.service.FixedTimestepResult
-import com.heyteam.ufg.domain.service.GameConstants
+import com.heyteam.ufg.application.port.output.RenderPort
+import com.heyteam.ufg.application.service.TimeManager
+import com.heyteam.ufg.domain.component.Direction
+import com.heyteam.ufg.domain.component.GameButton
+import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.entity.World
 
 class GameLoop(
     private var gameEngine: GameEngine,
     private val inputPort: KeyboardInputPort,
     private val renderPort: RenderPort,
+    private val timeManager: TimeManager,
 ) {
-//    private val fixedDt = 1.0 / 60.0
-//    private var accumulator = 0.0
-
     fun start() {
         var isRunning = true
         while (isRunning) {
-            val step = FixedTimestepResult(1.0 / GameConstants.TARGET_FPS, 1, 1.0 / GameConstants.TARGET_FPS)
+            val step = timeManager.update()
             val nextState = applyInputToState(gameEngine.getState(), inputPort.pollInputState(1))
             gameEngine = gameEngine.withState(nextState).update(step)
             renderPort.render(gameEngine.getState())
@@ -29,14 +26,14 @@ class GameLoop(
                 isRunning = false
                 println("Match is over")
             }
-            Thread.sleep(GameConstants.MILLIS_FOR_FPS)
+            timeManager.update()
         }
     }
 
     private fun applyInputToState(
-        state: GameState,
+        state: World,
         input: InputState,
-    ): GameState {
+    ): World {
         when {
             input.isPressed(GameButton.LEFT) -> println("LEFT")
             input.isPressed(GameButton.DOWN) -> println("DOWN")

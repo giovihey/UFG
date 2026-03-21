@@ -1,6 +1,5 @@
-package com.heyteam.ufg.domain.service
+package com.heyteam.ufg.domain.config
 
-// Game Configuration Constants
 object GameConstants {
     // Physics
     const val PLAYER_MOVE_SPEED = 100.0 // pixels per second

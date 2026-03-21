@@ -1,10 +1,11 @@
-package com.heyteam.ufg.domain.model
+package com.heyteam.ufg.domain.entity
 
-import com.heyteam.ufg.domain.physics.Rectangle
-import com.heyteam.ufg.domain.service.GameConstants.STAGE_HEIGHT
-import com.heyteam.ufg.domain.service.GameConstants.STAGE_WIDTH
+import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.Rectangle
+import com.heyteam.ufg.domain.config.GameConstants.STAGE_HEIGHT
+import com.heyteam.ufg.domain.config.GameConstants.STAGE_WIDTH
 
-data class GameState(
+data class World(
     val frameNumber: Long,
     val players: Map<Int, Player>,
     val stageBounds: Rectangle = Rectangle(0.0, 0.0, STAGE_WIDTH, STAGE_HEIGHT),
@@ -24,16 +25,9 @@ data class GameState(
     fun copyWithUpdatedPlayer(
         playerId: Int,
         updatedPlayer: Player,
-    ): GameState = copy(players = players + (playerId to updatedPlayer))
+    ): World = copy(players = players + (playerId to updatedPlayer))
 
-    fun copyWithUpdatedPlayers(updatedPlayers: Map<Int, Player>): GameState = copy(players = updatedPlayers)
+    fun copyWithUpdatedPlayers(updatedPlayers: Map<Int, Player>): World = copy(players = updatedPlayers)
 
-    fun copyWithFrameIncrement(): GameState = copy(frameNumber = frameNumber + 1)
-}
-
-enum class GameStatus {
-    RUNNING,
-    PAUSED,
-    ROUND_END,
-    MATCH_END,
+    fun copyWithFrameIncrement(): World = copy(frameNumber = frameNumber + 1)
 }
