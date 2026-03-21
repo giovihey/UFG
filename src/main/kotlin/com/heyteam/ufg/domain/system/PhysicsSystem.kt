@@ -1,13 +1,12 @@
 package com.heyteam.ufg.domain.system
 
-import com.heyteam.ufg.domain.component.Direction
 import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.PlayerState
 import com.heyteam.ufg.domain.component.Position
 import com.heyteam.ufg.domain.config.GameConstants
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 
-@Suppress("Indentation")
 object PhysicsSystem {
     fun update(
         state: World,
@@ -28,49 +27,73 @@ object PhysicsSystem {
         state: World,
         dt: Double,
     ): Player {
-        // Horizontal acceleration from input
-        val accelX =
-            when (player.nextMove.direction) {
-                Direction(x = 1.0, y = 0.0) -> GameConstants.ACCEL_RIGHT
-                Direction(x = -1.0, y = 0.0) -> -GameConstants.ACCEL_RIGHT
-                else -> 0.0
-            }
 
-        // Integrate: acceleration → velocity (fixed‑point style using SCALE)
-        val newVelX = player.nextMove.speedX + accelX * dt / GameConstants.SCALE
-        val newVelY = player.nextMove.speedY + GameConstants.GRAVITY * dt / GameConstants.SCALE
+        // Apply gravity
+        val (newSpeedY, newY) = applyGravityAndCollision(
+            speedY = player.nextMove.speedY,
+            posY = player.position.y,
+            dt = dt,
+            isGrounded = (player.position.y >= GameConstants.FLOOR_Y)
+        )
 
-        // Integrate: velocity → position
-        val newX = player.position.x + newVelX * dt
-        val newY = player.position.y + newVelY * dt
+        // Apply horizontal movement
+        val newSpeedX = player.nextMove.direction.x * GameConstants.WALK_SPEED
+        val newX = (player.position.x + newSpeedX * dt).coerceIn(
+            GameConstants.STAGE_MARGIN,
+            GameConstants.STAGE_WIDTH - GameConstants.STAGE_MARGIN
+        )
 
-        // Stage bounds
-        val stageRight = state.stageBounds.width - GameConstants.STAGE_MARGIN
-        val floorY = state.stageBounds.y // floor is at this Y (positive‑down)
+        val isGrounded = newY >= GameConstants.FLOOR_Y
 
-        val finalXF = newX.coerceIn(0.0, stageRight)
-
-        // Clamp to floor: player cannot go below floorY
-        val clampedY = newY.coerceAtMost(floorY)
-
-        // Zero vertical velocity when we hit the floor coming down
-        val finalVelY =
-            if (newY >= floorY && newVelY > 0.0) 0.0 else newVelY
-
-        // Apply friction
-        val frictionVelX = newVelX * GameConstants.FRICTION
-        val frictionVelY = finalVelY * GameConstants.FRICTION
-
-        val newHurtBox = player.hurtBox.copy(x = finalXF, y = clampedY)
+        val newPhysicsState = player.physicsState.copy(
+            state = determineState(player, isGrounded)
+        )
 
         return player.copy(
-            position = Position(finalXF, clampedY),
-            nextMove =
-                player.nextMove.copy(
-                    speedX = frictionVelX,
-                    speedY = frictionVelY,
-                ),
-            hurtBox = newHurtBox,
+            position = Position(newX, newY),
+            nextMove = player.nextMove.copy(
+                speedX = newSpeedX,
+                speedY = newSpeedY
+            ),
+            physicsState = newPhysicsState,
         )
+    }
+
+    private fun applyGravityAndCollision(
+        speedY: Double,
+        posY: Double,
+        dt: Double,
+        isGrounded: Boolean
+    ): Pair<Double, Double> {
+        var newSpeedY = speedY
+        var newY = posY
+
+        // Apply gravity
+        if (!isGrounded) {
+            newSpeedY += GameConstants.GRAVITY * dt
+            newSpeedY = newSpeedY.coerceAtMost(GameConstants.MAX_FALL_SPEED)
+        }
+
+        // Update position
+        newY += newSpeedY * dt
+
+        // Collision with floor
+        if (newY >= GameConstants.FLOOR_Y) {
+            newY = GameConstants.FLOOR_Y
+            newSpeedY = 0.0
+        }
+
+        return Pair(newSpeedY, newY)
+    }
+
+    private fun determineState(
+        player: Player,
+        isGrounded: Boolean
+    ): PlayerState {
+        return when {
+            !isGrounded -> PlayerState.JUMPING
+            player.nextMove.direction.x != 0.0 -> PlayerState.WALKING
+            else -> PlayerState.IDLE
+        }
     }
 }
