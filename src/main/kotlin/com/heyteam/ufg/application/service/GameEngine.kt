@@ -1,28 +1,18 @@
 package com.heyteam.ufg.application.service
 
+import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.entity.World
-import com.heyteam.ufg.domain.system.PhysicsSystem
+import com.heyteam.ufg.domain.system.GameLogic
 
 class GameEngine(
-    private val state: World,
-    private val gameLogic: (World, Double) -> World,
-    private val physicsSystem: (World, Double) -> World = PhysicsSystem::update,
+    private var world: World,
 ) {
-    fun getState(): World = state
+    fun getWorld(): World = world
 
-    fun withState(newState: World): GameEngine = GameEngine(newState, gameLogic, physicsSystem)
-
-    fun update(timeStep: FixedTimestepResult): GameEngine {
-        val (_, steps, fixedDt) = timeStep
-        var newState = state
-
-        // Fixed timestep physics loop (passed from TimeManager)
-        repeat(steps) {
-            newState = physicsSystem(newState, fixedDt)
-            newState = gameLogic(newState, fixedDt)
-            newState = newState.copyWithFrameIncrement()
-        }
-
-        return GameEngine(newState, gameLogic, physicsSystem)
+    fun step(
+        inputState: InputState,
+        fixedDt: Double,
+    ) {
+        world = GameLogic.step(world, inputState, fixedDt)
     }
 }
