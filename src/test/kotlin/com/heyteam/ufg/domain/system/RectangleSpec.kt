@@ -1,4 +1,4 @@
-package com.heyteam.ufg.domain.physics
+package com.heyteam.ufg.domain.system
 
 import com.heyteam.ufg.domain.component.Rectangle
 import io.kotest.core.spec.style.StringSpec
