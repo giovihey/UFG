@@ -10,8 +10,6 @@ import com.heyteam.ufg.domain.component.Position
 import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
-import com.heyteam.ufg.domain.system.GameLogicSystem
-import com.heyteam.ufg.domain.system.PhysicsSystem
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 
 // ── Initial player / character data ──────────────────────────────────────────
@@ -23,23 +21,23 @@ const val PLAYER_MAX_HEALTH = 100
 fun main() {
     var currentBitMask = 0
     val composeAdapter = ComposeAdapter(currentBitMask)
-    val timeManager = TimeManager()
+    val timeManager = TimeManager(targetFPS = 30)
+    val engine = GameEngine(createWorld())
 
-    val gameLoop =
+    val loop =
         GameLoop(
-            gameEngine = createInitialEngine(),
+            gameEngine = engine,
             inputPort = composeAdapter,
             renderPort = composeAdapter,
             timeManager = timeManager,
         )
 
-    Thread(gameLoop::start, "game-loop").apply { isDaemon = true }.start()
+    Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
 
     composeAdapter.startUI()
 }
 
-@Suppress("Indentation")
-fun createInitialEngine(): GameEngine {
+fun createWorld(): World {
     val player =
         Player(
             id = 1,
@@ -55,10 +53,5 @@ fun createInitialEngine(): GameEngine {
             health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
             hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
         )
-    val initialState = World(frameNumber = 0L, players = mapOf(1 to player))
-    return GameEngine(
-        state = initialState,
-        gameLogic = { s, _ -> GameLogicSystem.defaultGameLogic(s) },
-        physicsSystem = PhysicsSystem::update,
-    )
+    return World(frameNumber = 0L, players = mapOf(1 to player))
 }
