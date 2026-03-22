@@ -1,21 +1,20 @@
 package com.heyteam.ufg.domain.config
 
 object GameConstants {
-
     // Movement
-    const val WALK_SPEED = 120.0      // pixels/sec
-    const val RUN_SPEED = 200.0       // pixels/sec
-    const val JUMP_INITIAL_VELOCITY = -350.0  // pixels/sec (negative = up)
+    const val WALK_SPEED = 120.0 // pixels/sec
+    const val RUN_SPEED = 200.0 // pixels/sec
+    const val JUMP_INITIAL_VELOCITY = -350.0 // pixels/sec (negative = up)
 
     // Gravity
-    const val GRAVITY = 1000.0        // pixels/sec²
-    const val MAX_FALL_SPEED = 500.0  // pixels/sec (terminal velocity)
+    const val GRAVITY = 1000.0 // pixels/sec²
+    const val MAX_FALL_SPEED = 500.0 // pixels/sec (terminal velocity)
 
     // Stage
     const val STAGE_MARGIN = 100.0 // pixels from edge
     const val STAGE_WIDTH = 800.0
     const val STAGE_HEIGHT = 300.0
-    const val FLOOR_Y = 220.0         // Ground level
+    const val FLOOR_Y = 220.0 // Ground level
 
     const val PLAYER_DAMAGE_PER_FRAME = 25 // health points per frame
 

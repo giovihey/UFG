@@ -16,7 +16,7 @@ object PhysicsSystem {
 
         val updatedPlayers =
             state.players.mapValues { (_, player) ->
-                updatePlayerPhysics(player, state, dt)
+                updatePlayerPhysics(player, dt)
             }
 
         return state.copyWithUpdatedPlayers(updatedPlayers)
@@ -24,37 +24,39 @@ object PhysicsSystem {
 
     private fun updatePlayerPhysics(
         player: Player,
-        state: World,
         dt: Double,
     ): Player {
-
         // Apply gravity
-        val (newSpeedY, newY) = applyGravityAndCollision(
-            speedY = player.nextMove.speedY,
-            posY = player.position.y,
-            dt = dt,
-            isGrounded = (player.position.y >= GameConstants.FLOOR_Y)
-        )
+        val (newSpeedY, newY) =
+            applyGravityAndCollision(
+                speedY = player.nextMove.speedY,
+                posY = player.position.y,
+                dt = dt,
+                isGrounded = (player.position.y >= GameConstants.FLOOR_Y),
+            )
 
         // Apply horizontal movement
         val newSpeedX = player.nextMove.direction.x * GameConstants.WALK_SPEED
-        val newX = (player.position.x + newSpeedX * dt).coerceIn(
-            GameConstants.STAGE_MARGIN,
-            GameConstants.STAGE_WIDTH - GameConstants.STAGE_MARGIN
-        )
+        val newX =
+            (player.position.x + newSpeedX * dt).coerceIn(
+                GameConstants.STAGE_MARGIN,
+                GameConstants.STAGE_WIDTH - GameConstants.STAGE_MARGIN,
+            )
 
         val isGrounded = newY >= GameConstants.FLOOR_Y
 
-        val newPhysicsState = player.physicsState.copy(
-            state = determineState(player, isGrounded)
-        )
+        val newPhysicsState =
+            player.physicsState.copy(
+                state = determineState(player, isGrounded),
+            )
 
         return player.copy(
             position = Position(newX, newY),
-            nextMove = player.nextMove.copy(
-                speedX = newSpeedX,
-                speedY = newSpeedY
-            ),
+            nextMove =
+                player.nextMove.copy(
+                    speedX = newSpeedX,
+                    speedY = newSpeedY,
+                ),
             physicsState = newPhysicsState,
         )
     }
@@ -63,7 +65,7 @@ object PhysicsSystem {
         speedY: Double,
         posY: Double,
         dt: Double,
-        isGrounded: Boolean
+        isGrounded: Boolean,
     ): Pair<Double, Double> {
         var newSpeedY = speedY
         var newY = posY
@@ -88,12 +90,11 @@ object PhysicsSystem {
 
     private fun determineState(
         player: Player,
-        isGrounded: Boolean
-    ): PlayerState {
-        return when {
+        isGrounded: Boolean,
+    ): PlayerState =
+        when {
             !isGrounded -> PlayerState.JUMPING
             player.nextMove.direction.x != 0.0 -> PlayerState.WALKING
             else -> PlayerState.IDLE
         }
-    }
 }

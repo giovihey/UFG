@@ -6,5 +6,5 @@ enum class PlayerState {
     JUMPING,
     ATTACKING,
     HITSTUN,
-    BLOCKSTUN
+    BLOCKSTUN,
 }
