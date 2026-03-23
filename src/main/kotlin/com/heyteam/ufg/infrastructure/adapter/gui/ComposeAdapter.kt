@@ -1,18 +1,9 @@
 package com.heyteam.ufg.infrastructure.adapter.gui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.Button
-import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -28,15 +19,20 @@ import com.heyteam.ufg.application.port.output.RenderPort
 import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.entity.World
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
 
-class ComposeAdapter(
-    private var currentBitMask: Int,
-) : RenderPort,
+class ComposeAdapter :
+    RenderPort,
     KeyboardInputPort {
-    @Volatile private var latestState: World? = null
+    @Volatile private var currentBitMask: Int = 0
+
+    // mutableStateOf is thread-safe for reads/writes
+    // mutableStateOf is the magic — unlike @Volatile, Compose observes it. When the game loop
+    // writes a new World, Compose sees the change and redraws the screen.
+    private var worldState by mutableStateOf<World?>(null)
 
     override fun render(world: World) {
-        latestState = world
+        worldState = world
     }
 
     private val defaultKeyMap: Map<Key, GameButton> =
@@ -47,6 +43,7 @@ class ComposeAdapter(
             Key.D to GameButton.RIGHT,
             Key.P to GameButton.PUNCH,
             Key.K to GameButton.KICK,
+            Key.Spacebar to GameButton.JUMP,
         )
 
     fun startUI() =
@@ -59,7 +56,7 @@ class ComposeAdapter(
 
             Window(
                 onCloseRequest = ::exitApplication,
-                title = "My App",
+                title = "UFG",
                 state = windowState,
                 onPreviewKeyEvent = { event ->
                     val button = defaultKeyMap[event.key]
@@ -74,42 +71,14 @@ class ComposeAdapter(
                     }
                 },
             ) {
-                gameApp()
+                val world = worldState
+                if (world != null) {
+                    gameScreen(world)
+                }
             }
         }
 
-    @Composable
-    fun gameApp() {
-        background()
-        counter()
-    }
-
-    @Composable
-    fun character() {
-        val name = "mounir"
-        Text("Hello, $name!")
-    }
-
-    @Composable
-    fun background() {
-        val color: Color = Color.Blue
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(color),
-        )
-    }
-
-    @Composable
-    fun counter() {
-        var count by remember { mutableStateOf(0) }
-
-        Button(onClick = { count++ }) {
-            Text("Count is now: $count")
-        }
-    }
-
+    // Input handling
     override fun press(button: GameButton) {
         currentBitMask = currentBitMask or button.bit
     }

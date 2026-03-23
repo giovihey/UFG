@@ -15,6 +15,9 @@ object InputSystem {
             input.isPressed(GameButton.DOWN) -> println("DOWN")
             input.isPressed(GameButton.UP) -> println("UP")
             input.isPressed(GameButton.RIGHT) -> println("RIGHT")
+            input.isPressed(GameButton.KICK) -> println("KICK")
+            input.isPressed(GameButton.PUNCH) -> println("PUNCH")
+            input.isPressed(GameButton.JUMP) -> println("JUMP")
         }
         val p1 = world.players[1] ?: return world
         val direction =
