@@ -19,9 +19,8 @@ const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
 
 fun main() {
-    var currentBitMask = 0
-    val composeAdapter = ComposeAdapter(currentBitMask)
-    val timeManager = TimeManager(targetFPS = 30)
+    val composeAdapter = ComposeAdapter()
+    val timeManager = TimeManager(targetFPS = 60)
     val engine = GameEngine(createWorld())
 
     val loop =

@@ -7,6 +7,7 @@ enum class GameButton {
     RIGHT,
     PUNCH,
     KICK,
+    JUMP,
     ;
 
     val bit: Int
