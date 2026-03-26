@@ -1,20 +1,56 @@
 package com.heyteam.ufg
 
-import com.heyteam.ufg.domain.model.GameButton
-import com.heyteam.ufg.infrastructure.adapter.input.KeyboardInputAdapter
+import com.heyteam.ufg.application.service.GameEngine
+import com.heyteam.ufg.application.service.GameLoop
+import com.heyteam.ufg.application.service.TimeManager
+import com.heyteam.ufg.domain.component.Direction
+import com.heyteam.ufg.domain.component.Health
+import com.heyteam.ufg.domain.component.Movement
+import com.heyteam.ufg.domain.component.Position
+import com.heyteam.ufg.domain.component.Rectangle
+import com.heyteam.ufg.domain.entity.Player
+import com.heyteam.ufg.domain.entity.World
+import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 
-private const val FRAME_TIME_MS = 1000L
+// ── Initial player / character data ──────────────────────────────────────────
+const val P1_START_X = 100.0
+const val PLAYER_HURTBOX_W = 50.0
+const val PLAYER_HURTBOX_H = 80.0
+const val PLAYER_MAX_HEALTH = 100
 
 fun main() {
-    fun Int.getActivatedButtons(): Set<GameButton> = GameButton.entries.filter { (this and it.bit) != 0 }.toSet()
-    println("Fight in UFG")
-    val input: KeyboardInputAdapter = KeyboardInputAdapter.DEFAULT
+    val composeAdapter = ComposeAdapter()
+    val timeManager = TimeManager(targetFPS = 60)
+    val engine = GameEngine(createWorld())
 
-    while (true) {
-        val currInput = input.getCurrentInputState()
-        println(currInput.mask)
-        val activeButtons = currInput.mask.getActivatedButtons()
-        println("Pulsanti premuti: ${activeButtons.joinToString(", ") { it.name }}")
-        Thread.sleep(FRAME_TIME_MS)
-    }
+    val loop =
+        GameLoop(
+            gameEngine = engine,
+            inputPort = composeAdapter,
+            renderPort = composeAdapter,
+            timeManager = timeManager,
+        )
+
+    Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
+
+    composeAdapter.startUI()
+}
+
+fun createWorld(): World {
+    val player =
+        Player(
+            id = 1,
+            name = "P1",
+            position = Position(P1_START_X, 0.0),
+            nextMove =
+                Movement(
+                    direction = Direction(0.0, 0.0),
+                    position = Position(P1_START_X, 0.0),
+                    speedX = 0.0,
+                    speedY = 0.0,
+                ),
+            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
+            hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
+        )
+    return World(frameNumber = 0L, players = mapOf(1 to player))
 }
