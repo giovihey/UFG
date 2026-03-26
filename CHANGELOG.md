@@ -1,3 +1,29 @@
+## [3.1.0](https://github.com/giovihey/UFG/compare/v3.0.0...v3.1.0) (2026-03-26)
+
+### Features
+
+* add a simple app demo ([3443478](https://github.com/giovihey/UFG/commit/34434784a096842c3061a047bd9de1cfe04bfb04))
+* add HitDetectionSystem for future implementation ([3163b9c](https://github.com/giovihey/UFG/commit/3163b9c7eeb0239e2921a5ffd620a6f730ebdc70))
+* add initial GameEngine and GameLoop ([2eec844](https://github.com/giovihey/UFG/commit/2eec844fbed349b996e5ffcfc4e0d3066a00f074))
+* add jump and started testing the input ([c78496e](https://github.com/giovihey/UFG/commit/c78496e9e48e052cb0603fb53571ad9615e41952))
+* add physics system for player ([66548e1](https://github.com/giovihey/UFG/commit/66548e18f44de186faf0a298ed61677de025fdc6))
+* add player state ([083f8ce](https://github.com/giovihey/UFG/commit/083f8ced430f9288efbb77e672d95a53a7367e49))
+* add some test for physics system ([45a257d](https://github.com/giovihey/UFG/commit/45a257d4d41d00713f67825fef25099d73ac8883))
+* change structure for ECS ([1e4215f](https://github.com/giovihey/UFG/commit/1e4215f7563c51d044d8614ff68ab9daebac8be9))
+* changing better domain structure ([8c1ef3d](https://github.com/giovihey/UFG/commit/8c1ef3d941a539e95da0fd4abc8d3889dcefe8f1))
+* domain structure finished ([b65c364](https://github.com/giovihey/UFG/commit/b65c364eb7df5308204df508789f964fa5322f31))
+* finish game engine and game loop interaction ([3b06ff7](https://github.com/giovihey/UFG/commit/3b06ff7ce473f6578d6c8d0362a54d445c71bc4f))
+* fuck you detekt ([9bc109b](https://github.com/giovihey/UFG/commit/9bc109bb63aae089f4122459383e870e8988dfb5))
+* keyboard inputs transfered using compose UI library ([2df7146](https://github.com/giovihey/UFG/commit/2df7146886dd439174bfdc72ddaf25ac54211ea7))
+* link the ui rendering (now the initial structure is finished) ([d0e79f4](https://github.com/giovihey/UFG/commit/d0e79f4024332e294873b0317d710593f7870267))
+* update physicsSystem with new physics state ([cbb3950](https://github.com/giovihey/UFG/commit/cbb39500f3df4adf095d36fbfdfefcebc4478868))
+* we have a UI ([81929a1](https://github.com/giovihey/UFG/commit/81929a1fde0a16de5f05b0f493fe98f7238eb51c))
+
+### Bug Fixes
+
+* fix TimeManager with accumulator for lag ([9187bc3](https://github.com/giovihey/UFG/commit/9187bc3ebc17e6b99697dabd743d74c5be45fbb7))
+* remove dependency from domain and get better standard names ([9ccd4cf](https://github.com/giovihey/UFG/commit/9ccd4cfa62ea8aeae393b600920e35b563ffa1d2))
+
 ## [3.0.0](https://github.com/giovihey/UFG/compare/v2.3.1...v3.0.0) (2025-11-30)
 
 ### ⚠ BREAKING CHANGES
