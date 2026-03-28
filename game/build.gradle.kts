@@ -34,6 +34,9 @@ dependencies {
 }
 
 application {
+    applicationDefaultJvmArgs = listOf(
+        "-Djava.library.path=${project.rootDir}/channel/build"
+    )
     mainClass.set("com.heyteam.ufg.MainKt")
 }
 
