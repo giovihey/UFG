@@ -1,5 +1,6 @@
 package com.heyteam.ufg.domain.entity
 
+import com.heyteam.ufg.domain.component.AttackState
 import com.heyteam.ufg.domain.component.Health
 import com.heyteam.ufg.domain.component.Movement
 import com.heyteam.ufg.domain.component.PlayerPhysicsState
@@ -14,4 +15,5 @@ data class Player(
     val health: Health,
     val hurtBox: Rectangle,
     val physicsState: PlayerPhysicsState = PlayerPhysicsState(),
+    val attackState: AttackState? = null,
 )

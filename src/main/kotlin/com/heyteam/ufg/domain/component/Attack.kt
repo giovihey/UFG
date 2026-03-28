@@ -1,11 +1,9 @@
 package com.heyteam.ufg.domain.component
 
-import java.awt.Button
-
 data class Attack(
     val name: String,
     val damage: Int,
-    val buttonInput: Button,
+    val buttonInput: GameButton,
     val hitBox: Rectangle,
     val startupFrames: Int,
     val activeFrames: Int,
