@@ -12,6 +12,7 @@ object GameLogic {
         fixedDt: Double,
     ): World {
         var next = InputSystem.apply(world, input)
+        next = AttackSystem.update(next)
         next = PhysicsSystem.update(next, fixedDt)
         next = applyGameRules(next)
         next = next.copyWithFrameIncrement()

@@ -1,5 +1,8 @@
 package com.heyteam.ufg.domain.system
 
+import com.heyteam.ufg.domain.component.Attack
+import com.heyteam.ufg.domain.component.AttackState
+import com.heyteam.ufg.domain.component.Attacks
 import com.heyteam.ufg.domain.component.Direction
 import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
@@ -39,6 +42,16 @@ object InputSystem {
                 p1.nextMove.speedY // keep current vertical speed (gravity handles it)
             }
 
+        val newAttackState =
+            when {
+                // already attacking, ignore input
+                p1.attackState != null -> p1.attackState
+
+                input.isPressed(GameButton.PUNCH) -> AttackState(attack = Attacks.JAB)
+
+                else -> null
+            }
+
         val updatedPlayer =
             p1.copy(
                 nextMove =
@@ -46,6 +59,7 @@ object InputSystem {
                         direction = Direction(dx, 0.0),
                         speedY = newSpeedY,
                     ),
+                attackState = newAttackState,
             )
         return world.copyWithUpdatedPlayer(1, updatedPlayer)
     }
