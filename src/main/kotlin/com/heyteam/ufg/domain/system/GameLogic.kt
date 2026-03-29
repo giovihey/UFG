@@ -14,6 +14,7 @@ object GameLogic {
         var next = InputSystem.apply(world, input)
         next = AttackSystem.update(next)
         next = PhysicsSystem.update(next, fixedDt)
+        next = HitDetectionSystem.update(next)
         next = applyGameRules(next)
         next = next.copyWithFrameIncrement()
         return next
