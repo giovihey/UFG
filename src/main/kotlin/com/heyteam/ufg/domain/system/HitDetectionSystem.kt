@@ -15,9 +15,9 @@ object HitDetectionSystem {
         worldForUpdate.players.values.forEach { attacker ->
             // skip this attacker, continue loop
             val state = attacker.attackState ?: return@forEach
-            if (state.phase != AttackPhase.ACTIVE || state.hasLanded) return@forEach
+            if (state.hasLanded) return@forEach
 
-            val hitBox = worldSpaceHitBox(attacker, state.attack.hitBox)
+            val hitBox = state.activeHitBox(attacker.position) ?: return@forEach
             worldForUpdate.players.values
                 .filter { it.id != attacker.id }
                 .forEach { opponent ->
@@ -26,7 +26,7 @@ object HitDetectionSystem {
                     }
                 }
         }
-        return world
+        return worldForUpdate
     }
 
     private fun applyHit(
@@ -50,24 +50,4 @@ object HitDetectionSystem {
             .copyWithUpdatedPlayer(opponent.id, damagedOpponent)
             .copyWithUpdatedPlayer(attacker.id, updatedAttacker)
     }
-
-    /**
-     * Attack hitboxes are defined as offsets from the player's position.
-     * Translates a hitbox from local space (relative to the player)
-     * to world space (absolute position on the stage).
-     *
-     * @param player the attacking player, used for world position
-     * @param hitBox the attack's hitbox in local space
-     * @return the hitbox translated to world space
-     *
-     * Note: does not account for facing direction yet.
-     */
-    private fun worldSpaceHitBox(
-        player: Player,
-        hitBox: Rectangle,
-    ): Rectangle =
-        hitBox.copy(
-            x = player.position.x + hitBox.x,
-            y = player.position.y + hitBox.y,
-        )
 }

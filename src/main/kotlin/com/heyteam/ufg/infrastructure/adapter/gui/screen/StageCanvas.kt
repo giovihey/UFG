@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.heyteam.ufg.domain.component.AttackPhase
 import com.heyteam.ufg.domain.config.GameConstants.FLOOR_Y
 import com.heyteam.ufg.domain.entity.World
 
@@ -39,6 +41,15 @@ fun stageCanvas(world: World) {
                         player.hurtBox.height.toFloat(),
                     ),
             )
+            // Hitbox — only visible during ACTIVE phase, drawn as outline
+            player.attackState?.activeHitBox(player.position)?.let { box ->
+                drawRect(
+                    color = Color.Yellow,
+                    topLeft = Offset(box.x.toFloat(), box.y.toFloat()),
+                    size = Size(box.width.toFloat(), box.height.toFloat()),
+                    style = Stroke(width = 2f),
+                )
+            }
         }
     }
 }
