@@ -8,7 +8,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import com.heyteam.ufg.domain.component.AttackPhase
 import com.heyteam.ufg.domain.config.GameConstants.FLOOR_Y
 import com.heyteam.ufg.domain.entity.World
 

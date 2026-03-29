@@ -1,9 +1,7 @@
 package com.heyteam.ufg.domain.system
 
-import com.heyteam.ufg.domain.component.AttackPhase
 import com.heyteam.ufg.domain.component.AttackState
 import com.heyteam.ufg.domain.component.GameStatus
-import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 

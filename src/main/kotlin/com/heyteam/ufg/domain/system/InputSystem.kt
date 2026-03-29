@@ -1,6 +1,5 @@
 package com.heyteam.ufg.domain.system
 
-import com.heyteam.ufg.domain.component.Attack
 import com.heyteam.ufg.domain.component.AttackState
 import com.heyteam.ufg.domain.component.Attacks
 import com.heyteam.ufg.domain.component.Direction
@@ -14,7 +13,7 @@ object InputSystem {
         world: World,
         input: InputState,
     ): World {
-        when {
+        /*when {
             input.isPressed(GameButton.LEFT) -> println("LEFT")
             input.isPressed(GameButton.DOWN) -> println("DOWN")
             input.isPressed(GameButton.UP) -> println("UP")
@@ -22,7 +21,7 @@ object InputSystem {
             input.isPressed(GameButton.KICK) -> println("KICK")
             input.isPressed(GameButton.PUNCH) -> println("PUNCH")
             input.isPressed(GameButton.JUMP) -> println("JUMP")
-        }
+        }*/
 
         val p1 = world.players[1] ?: return world
         // Horizontal — independent of vertical

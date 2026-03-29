@@ -1,6 +1,15 @@
 package com.heyteam.ufg.domain.system
 
-import com.heyteam.ufg.domain.component.*
+import com.heyteam.ufg.domain.component.Attack
+import com.heyteam.ufg.domain.component.AttackPhase
+import com.heyteam.ufg.domain.component.AttackState
+import com.heyteam.ufg.domain.component.Direction
+import com.heyteam.ufg.domain.component.GameButton
+import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.Health
+import com.heyteam.ufg.domain.component.Movement
+import com.heyteam.ufg.domain.component.Position
+import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 import io.kotest.core.spec.style.StringSpec
