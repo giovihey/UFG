@@ -11,6 +11,9 @@ import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
+import com.heyteam.ufg.infrastructure.adapter.network.NetworkAdapter
+import com.heyteam.ufg.infrastructure.adapter.network.SignalingClient
+import com.heyteam.ufg.infrastructure.adapter.network.WebRtcBridge
 
 // ── Initial player / character data ──────────────────────────────────────────
 const val P1_START_X = 100.0
@@ -19,6 +22,14 @@ const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
 
 fun main() {
+    val bridge = WebRtcBridge()
+    val networkAdapter = NetworkAdapter(bridge)
+    val signalingClient = SignalingClient("ws://localhost:8080/ws", bridge)
+
+    signalingClient.connect()
+    bridge.initialize("stun:stun.l.google.com:19302")
+
+    bridge.createOffer()
     val composeAdapter = ComposeAdapter()
     val timeManager = TimeManager(targetFPS = 60)
     val engine = GameEngine(createWorld())

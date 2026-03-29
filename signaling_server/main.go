@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,8 +16,12 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+var (
+	clients [2]*websocket.Conn
+	mu      sync.Mutex
+)
+
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// 1. Upgrade HTTP → WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("upgrade error:", err)
@@ -24,24 +29,49 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	log.Println("client connected")
+	mu.Lock()
+	slot := -1
+	for i := 0; i < 2; i++ {
+		if clients[i] == nil {
+			clients[i] = conn
+			slot = i
+			break
+		}
+	}
+	mu.Unlock()
 
-	// 2. Read loop — runs until client disconnects
+	if slot == -1 {
+		log.Println("room full, rejecting client")
+		return
+	}
+
+	log.Printf("player %d connected", slot+1)
+
+	defer func() {
+		mu.Lock()
+		clients[slot] = nil
+		mu.Unlock()
+	}()
+
 	for {
-		// Read a message (blocks until one arrives)
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("client disconnected:", err)
+			log.Printf("player %d disconnected: %v", slot+1, err)
 			break
 		}
 
-		log.Printf("received: %s", message)
+		log.Printf("player %d sent: %s", slot+1, message)
 
-		// 3. Echo it back
-		err = conn.WriteMessage(messageType, message)
-		if err != nil {
-			log.Println("write error:", err)
-			break
+		// Forward to the other player
+		mu.Lock()
+		other := clients[1-slot]
+		mu.Unlock()
+
+		if other != nil {
+			err = other.WriteMessage(messageType, message)
+			if err != nil {
+				log.Printf("error forwarding to player %d: %v", 2-slot, err)
+			}
 		}
 	}
 }

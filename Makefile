@@ -1,4 +1,4 @@
-.PHONY:	signaling game native all clean down
+.PHONY:	signaling game channel all clean down
 
 all: signaling game
 
@@ -8,8 +8,8 @@ signaling:
 game:
 	cd game && ./gradlew run
 
-native:
-	cd native && cmake -B build && cmake --build build 
+channel:
+	cd channel && cmake -B build && cmake --build build 
 
 down:
 	docker compose down
