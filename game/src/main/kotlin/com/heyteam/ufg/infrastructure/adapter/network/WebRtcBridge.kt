@@ -1,16 +1,26 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
-class WebRtcBridge {
+class WebRtcBridge : PeerConnectionBridge {
     companion object {
         init {
-            System.loadLibrary("webrtc_wrapper")  // loads libwebrtc_wrapper.dylib
+            System.loadLibrary("webrtc_wrapper") // loads libwebrtc_wrapper.dylib
         }
     }
 
     // These match the C++ functions exactly
-    external fun initialize(stunServer: String)
-    external fun createOffer(): String
-    external fun setRemoteDescription(sdp: String)
-    external fun addIceCandidate(candidate: String, mid: String)
-    external fun sendInput(inputMask: Int, frameNumber: Long)
+    external override fun initialize(stunServer: String)
+
+    external override fun createOffer(): String
+
+    external override fun setRemoteDescription(sdp: String)
+
+    external override fun addIceCandidate(
+        candidate: String,
+        mid: String,
+    )
+
+    external override fun sendInput(
+        inputMask: Int,
+        frameNumber: Long,
+    )
 }

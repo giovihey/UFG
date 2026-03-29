@@ -26,22 +26,26 @@ tasks.jar {
 
 dependencies {
     val kotestVersion = "5.8.0"
+    val mockkVersion = "1.13.13"
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
     testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
     testImplementation("io.kotest:kotest-property:$kotestVersion")
+    testImplementation("io.mockk:mockk:$mockkVersion")
     implementation(compose.desktop.currentOs)
 }
 
 application {
-    applicationDefaultJvmArgs = listOf(
-        "-Djava.library.path=${project.rootDir}/channel/build"
-    )
+    applicationDefaultJvmArgs =
+        listOf(
+            "-Djava.library.path=${project.rootDir}/channel/build",
+        )
     mainClass.set("com.heyteam.ufg.MainKt")
 }
 
 tasks.test {
     useJUnitPlatform()
+    jvmArgs("-Djava.library.path=${project.rootDir}/channel/build")
 }
 
 kotlin {

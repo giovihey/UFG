@@ -3,11 +3,12 @@ package com.heyteam.ufg.infrastructure.adapter.network
 import com.heyteam.ufg.application.port.input.NetworkInputPort
 import com.heyteam.ufg.application.port.output.NetworkOutputPort
 import com.heyteam.ufg.domain.component.InputState
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.ConcurrentHashMap
 
 class NetworkAdapter(
-    private val bridge: WebRtcBridge
-) : NetworkOutputPort, NetworkInputPort {
+    private val bridge: PeerConnectionBridge,
+) : NetworkOutputPort,
+    NetworkInputPort {
 //    Thread 1: libdatachannel's internal thread
 //    → receives bytes from remote player
 //    → calls C++ onMessage callback
@@ -17,27 +18,22 @@ class NetworkAdapter(
 //    Thread 2: your game loop thread
 //    → calls pollRemoteInput()
 //    → READS from the queue
-//    private val receivedInputs = ConcurrentLinkedQueue<Long, InputState>()
-    override fun sendInput(inputState: InputState, frameNumber: Long) {
+    private val receivedInputs = ConcurrentHashMap<Long, InputState>()
+
+    override fun sendInput(
+        inputState: InputState,
+        frameNumber: Long,
+    ) {
         bridge.sendInput(inputState.mask, frameNumber)
     }
 
-    override fun pollRemoteInput(frameNumber: Long): InputState? {
-//        // Find and remove the input for this frame
-//        val iterator = receivedInputs.iterator()
-//        while (iterator.hasNext()) {
-//            val (frame, input) = iterator.next()
-//            if (frame == frameNumber) {
-//                iterator.remove()
-//                return input
-//            }
-//        }
-        return null  // not arrived yet
-    }
+    override fun pollRemoteInput(frameNumber: Long): InputState = receivedInputs.remove(frameNumber) ?: InputState.NONE
 
     // Called from C++ via JNI when the remote player's input arrives
-//    fun onRemoteInput(inputMask: Int, frameNumber: Long) {
-//        receivedInputs.add(frameNumber to InputState(inputMask))
-//    }
-
+    fun onRemoteInput(
+        inputMask: Int,
+        frameNumber: Long,
+    ) {
+        receivedInputs.put(frameNumber, InputState(inputMask))
+    }
 }
