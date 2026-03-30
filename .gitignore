@@ -15,7 +15,10 @@ node_modules/
 .idea/**/shelf
 .gradle/
 
+
+# Specific 
 CLAUDE.md
+game/bin/
 
 # AWS User-specific
 .idea/**/aws.xml

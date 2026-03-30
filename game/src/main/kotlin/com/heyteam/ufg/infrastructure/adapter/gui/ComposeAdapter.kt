@@ -1,0 +1,96 @@
+package com.heyteam.ufg.infrastructure.adapter.gui
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
+import com.heyteam.ufg.application.port.input.KeyboardInputPort
+import com.heyteam.ufg.application.port.output.RenderPort
+import com.heyteam.ufg.domain.component.GameButton
+import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.entity.World
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
+import kotlin.system.exitProcess
+
+class ComposeAdapter :
+    RenderPort,
+    KeyboardInputPort {
+    @Volatile private var currentBitMask: Int = 0
+
+    // mutableStateOf is thread-safe for reads/writes
+    // mutableStateOf is the magic — unlike @Volatile, Compose observes it. When the game loop
+    // writes a new World, Compose sees the change and redraws the screen.
+    private var worldState by mutableStateOf<World?>(null)
+
+    override fun render(world: World) {
+        worldState = world
+    }
+
+    override fun shutdown() {
+        exitProcess(0)
+    }
+
+    private val defaultKeyMap: Map<Key, GameButton> =
+        mapOf(
+            Key.W to GameButton.UP,
+            Key.A to GameButton.LEFT,
+            Key.S to GameButton.DOWN,
+            Key.D to GameButton.RIGHT,
+            Key.P to GameButton.PUNCH,
+            Key.K to GameButton.KICK,
+            Key.Spacebar to GameButton.JUMP,
+        )
+
+    fun startUI() =
+        application {
+            val windowState =
+                rememberWindowState(
+                    size = DpSize(800.dp, 600.dp),
+                    position = WindowPosition(Alignment.Center),
+                )
+
+            Window(
+                onCloseRequest = ::shutdown,
+                title = "UFG",
+                state = windowState,
+                onPreviewKeyEvent = { event ->
+                    val button = defaultKeyMap[event.key]
+                    if (button != null) {
+                        when (event.type) {
+                            KeyEventType.KeyDown -> press(button)
+                            KeyEventType.KeyUp -> release(button)
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                },
+            ) {
+                val world = worldState
+                if (world != null) {
+                    gameScreen(world)
+                }
+            }
+        }
+
+    // Input handling
+    override fun press(button: GameButton) {
+        currentBitMask = currentBitMask or button.bit
+    }
+
+    override fun release(button: GameButton) {
+        currentBitMask = currentBitMask and button.bit.inv()
+    }
+
+    override fun pollInputState(player: Int): InputState = InputState(currentBitMask)
+}
