@@ -20,11 +20,13 @@ const val P1_START_X = 100.0
 const val PLAYER_HURTBOX_W = 50.0
 const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
+const val POLL_INTERVAL_MS = 100L
 
 fun main(args: Array<String>) {
     val bridge = WebRtcBridge()
     val networkAdapter = NetworkAdapter(bridge)
-    val signalingClient = SignalingClient("ws://localhost:8080/ws", bridge)
+    val signalingServerDefault: String = "ws://localhost:8080/ws"
+    val signalingClient = SignalingClient(signalingServerDefault, bridge)
 
     // Listeners ASSEMBLE!!!
     bridge.dataChannelListener = networkAdapter
@@ -44,7 +46,7 @@ fun main(args: Array<String>) {
 
     println("Waiting for peer to connect...")
     while (!networkAdapter.isConnected()) {
-        Thread.sleep(100)
+        Thread.sleep(POLL_INTERVAL_MS)
     }
     println("Connected! Starting game.")
 

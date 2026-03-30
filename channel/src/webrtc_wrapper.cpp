@@ -4,6 +4,7 @@
 #include <memory> // for shared_ptr
 #include <rtc/rtc.hpp> // libdatachannel
 #include <string>
+#include <cstring>
 
 // Global state — one peer connection and one data channel
 static std::shared_ptr<rtc::PeerConnection> peerConnection;
