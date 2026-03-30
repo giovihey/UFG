@@ -24,7 +24,7 @@ target_link_libraries(webrtc_wrapper PRIVATE
 )
 
 add_executable(local_test test/local_test.cpp
-        test/protocol_test.cpp)
+        test/local_test.cpp)
 
 target_link_libraries(local_test PRIVATE                                                       
     LibDataChannel::LibDataChannel
