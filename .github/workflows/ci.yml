@@ -45,6 +45,9 @@ jobs:
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++ libssl-dev
 
+      - name: run channel tests
+        run: cd channel/build && ctest --output-on-failure
+
       - name: Build libdatachannel from source
         run: |
           git clone --recurse-submodules https://github.com/paullouisageneau/libdatachannel.git
