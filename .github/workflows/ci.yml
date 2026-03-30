@@ -47,7 +47,7 @@ jobs:
 
       - name: Build libdatachannel from source
         run: |
-          git clone --recurse-submodules https://github.com/nicol/libdatachannel.git
+          git clone --recurse-submodules https://github.com/paullouisageneau/libdatachannel.git
           cd libdatachannel
           cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local
           cmake --build build -j$(nproc)
@@ -71,4 +71,4 @@ jobs:
           go-version: "1.22"
 
       - name: Build signaling server
-        run: cd signaling-server && go build ./...
+        run: cd signaling_server && go build ./...

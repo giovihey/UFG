@@ -21,7 +21,7 @@ class NetworkAdapterSpec :
             val bridge = mockk<PeerConnectionBridge>(relaxed = true)
             val adapter = NetworkAdapter(bridge)
 
-            adapter.pollRemoteInput(99L) shouldBe InputState.NONE
+            adapter.pollRemoteInput(99L) shouldBe null
         }
 
         test("sendInput delegates to bridge") {
