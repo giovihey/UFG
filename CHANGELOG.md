@@ -1,3 +1,17 @@
+## [3.2.0](https://github.com/giovihey/UFG/compare/v3.1.0...v3.2.0) (2026-03-30)
+
+### Features
+
+* first working implementation ([5166355](https://github.com/giovihey/UFG/commit/516635522b81947736062459456958c311555f15))
+* passing to multiplayer ([6bf90e1](https://github.com/giovihey/UFG/commit/6bf90e1f838a44dec3e637e6ba24af2955fdcd8e))
+
+### Bug Fixes
+
+* build and wertc wrapper imports ([f3b5321](https://github.com/giovihey/UFG/commit/f3b5321fbefdba1ff0139ca07b616e4e60d4bb32))
+* change ci to control all the components ([c0330db](https://github.com/giovihey/UFG/commit/c0330db8d114ca4a619f3de745d3b0ce648ca70e))
+* cmake typo in tests ([a0e0149](https://github.com/giovihey/UFG/commit/a0e0149d74ce028244dbe1eaa7756f9ed814f71a))
+* typos and broken tests ([692dd0c](https://github.com/giovihey/UFG/commit/692dd0cd49be9364906649db1591af55d67fa1f2))
+
 ## [3.1.0](https://github.com/giovihey/UFG/compare/v3.0.0...v3.1.0) (2026-03-26)
 
 ### Features
