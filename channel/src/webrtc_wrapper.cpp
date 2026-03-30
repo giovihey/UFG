@@ -71,6 +71,17 @@ JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRt
         dataChannel = dc;
         std::cout << "Data channel received" << std::endl;
 
+        dc->onOpen([]() {
+            std::cout << "Data channel open" << std::endl;
+            JNIEnv *env;
+            jvm->AttachCurrentThread((void **) &env, nullptr);
+
+            jclass cls = env->GetObjectClass(callbackObj);
+            jmethodID mid = env->GetMethodID(cls, "onDataChannelOpen", "()V");
+            env->CallVoidMethod(callbackObj, mid);
+            jvm->DetachCurrentThread();
+        });
+
         dc->onMessage([](auto message) {
             // Called when we receive data from the other player
             // 1. get a JNI env for this thread
@@ -136,7 +147,15 @@ JNIEXPORT jstring JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_We
     // The offerer creates the data channel
     dataChannel = peerConnection->createDataChannel("input");
 
-    dataChannel->onOpen([]() { std::cout << "Data channel open" << std::endl; });
+    dataChannel->onOpen([]() {
+        std::cout << "Data channel open" << std::endl;
+        JNIEnv *env;
+        jvm->AttachCurrentThread((void **) &env, nullptr);
+        jclass cls = env->GetObjectClass(callbackObj);
+        jmethodID mid = env->GetMethodID(cls, "onDataChannelOpen", "()V");
+        env->CallVoidMethod(callbackObj, mid);
+        jvm->DetachCurrentThread();
+    });
 
     dataChannel->onMessage([](auto message) {
         // Same onMessage handler you already have —

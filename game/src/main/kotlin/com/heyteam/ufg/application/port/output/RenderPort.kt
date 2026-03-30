@@ -4,4 +4,6 @@ import com.heyteam.ufg.domain.entity.World
 
 interface RenderPort {
     fun render(world: World)
+
+    fun shutdown()
 }

@@ -5,6 +5,9 @@ all: signaling game
 signaling:
 	docker compose up --build -d
 
+host:
+	cd game && ./gradlew run --args='--host'
+
 game:
 	cd game && ./gradlew run
 

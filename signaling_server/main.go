@@ -18,8 +18,14 @@ var upgrader = websocket.Upgrader{
 
 var (
 	clients [2]*websocket.Conn
+	queues  [2][]queuedMessage
 	mu      sync.Mutex
 )
+
+type queuedMessage struct {
+	messageType int
+	data        []byte
+}
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -38,11 +44,18 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	mu.Unlock()
-
 	if slot == -1 {
+		mu.Unlock()
 		log.Println("room full, rejecting client")
 		return
+	}
+
+	pending := queues[slot]
+	queues[slot] = nil
+	mu.Unlock()
+
+	for _, msg := range pending {
+		conn.WriteMessage(msg.messageType, msg.data)
 	}
 
 	log.Printf("player %d connected", slot+1)
@@ -65,14 +78,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		// Forward to the other player
 		mu.Lock()
 		other := clients[1-slot]
-		mu.Unlock()
-
 		if other != nil {
 			err = other.WriteMessage(messageType, message)
-			if err != nil {
-				log.Printf("error forwarding to player %d: %v", 2-slot, err)
-			}
+		} else {
+			// Other player not here yet — queue it
+			queues[1-slot] = append(queues[1-slot], queuedMessage{messageType, message})
 		}
+		mu.Unlock()
 	}
 }
 

@@ -1,7 +1,5 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
-import com.heyteam.ufg.domain.component.MoveInput
-
 class WebRtcBridge : PeerConnectionBridge {
     companion object {
         init {
@@ -10,9 +8,11 @@ class WebRtcBridge : PeerConnectionBridge {
     }
 
     var signalingListener: SignalingListener? = null
+    var dataChannelListener: DataChannelListener? = null
 
     // called from C++ when local SDP is ready
     fun onLocalDescription(sdp: String) {
+        println("C++ fired onLocalDescription")
         signalingListener?.onLocalDescription(sdp)
     }
 
@@ -20,14 +20,21 @@ class WebRtcBridge : PeerConnectionBridge {
         candidate: String,
         mid: String,
     ) {
+        println("C++ fired onLocalCandidate")
         signalingListener?.onLocalCandidate(candidate, mid)
     }
 
-//    fun onRemoteInput(
-//        inputMask: Int,
-//        frameNumber: Long,
-//    ) {
-//    }
+    fun onDataChannelOpen() {
+        println("C++ fired onDataChannelOpen")
+        dataChannelListener?.onDataChannelOpen()
+    }
+
+    fun onRemoteInput(
+        inputMask: Int,
+        frameNumber: Long,
+    ) {
+        dataChannelListener?.onRemoteInput(inputMask, frameNumber)
+    }
 
     // These match the C++ functions exactly
     external override fun initialize(stunServer: String)

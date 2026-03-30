@@ -8,7 +8,8 @@ import java.util.concurrent.ConcurrentHashMap
 class NetworkAdapter(
     private val bridge: PeerConnectionBridge,
 ) : NetworkOutputPort,
-    NetworkInputPort {
+    NetworkInputPort,
+    DataChannelListener {
 //    Thread 1: libdatachannel's internal thread
 //    → receives bytes from remote player
 //    → calls C++ onMessage callback
@@ -19,6 +20,7 @@ class NetworkAdapter(
 //    → calls pollRemoteInput()
 //    → READS from the queue
     private val receivedInputs = ConcurrentHashMap<Long, InputState>()
+    private var connected = false
 
     override fun sendInput(
         inputState: InputState,
@@ -27,13 +29,20 @@ class NetworkAdapter(
         bridge.sendInput(inputState.mask, frameNumber)
     }
 
-    override fun pollRemoteInput(frameNumber: Long): InputState = receivedInputs.remove(frameNumber) ?: InputState.NONE
+    override fun pollRemoteInput(frameNumber: Long): InputState? = receivedInputs.remove(frameNumber)
 
     // Called from C++ via JNI when the remote player's input arrives
-    fun onRemoteInput(
+    override fun onRemoteInput(
         inputMask: Int,
         frameNumber: Long,
     ) {
+        println("Received remote input for frame $frameNumber")
         receivedInputs.put(frameNumber, InputState(inputMask))
+    }
+
+    fun isConnected(): Boolean = connected
+
+    override fun onDataChannelOpen() {
+        connected = true
     }
 }

@@ -21,18 +21,38 @@ const val PLAYER_HURTBOX_W = 50.0
 const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
 
-fun main() {
+fun main(args: Array<String>) {
     val bridge = WebRtcBridge()
     val networkAdapter = NetworkAdapter(bridge)
     val signalingClient = SignalingClient("ws://localhost:8080/ws", bridge)
 
+    // Listeners ASSEMBLE!!!
+    bridge.dataChannelListener = networkAdapter
     signalingClient.connect()
+
     bridge.initialize("stun:stun.l.google.com:19302")
 
-    bridge.createOffer()
+    val isHost = args.contains("--host")
+
+    if (isHost) {
+        bridge.createOffer()
+    }
+
     val composeAdapter = ComposeAdapter()
     val timeManager = TimeManager(targetFPS = 60)
     val engine = GameEngine(createWorld())
+
+    println("Waiting for peer to connect...")
+    while (!networkAdapter.isConnected()) {
+        Thread.sleep(100)
+    }
+    println("Connected! Starting game.")
+
+    Runtime.getRuntime().addShutdownHook(
+        Thread {
+            Runtime.getRuntime().halt(0)
+        },
+    )
 
     val loop =
         GameLoop(
@@ -40,6 +60,8 @@ fun main() {
             inputPort = composeAdapter,
             renderPort = composeAdapter,
             timeManager = timeManager,
+            netSender = networkAdapter,
+            netReceiver = networkAdapter,
         )
 
     Thread(loop::start, "game-loop").apply { isDaemon = true }.start()

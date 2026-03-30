@@ -11,6 +11,7 @@ class SignalingClient(
     private val bridge: WebRtcBridge,
 ) : SignalingListener {
     private lateinit var ws: WebSocketClient
+    private var descriptionSent = false
 
     fun connect() {
         ws =
@@ -20,6 +21,7 @@ class SignalingClient(
                 }
 
                 override fun onMessage(message: String?) {
+                    println("Signaling received: $message")
                     val json = JSONObject(message)
                     when (json.getString("type")) {
                         "sdp" -> bridge.setRemoteDescription(json.getString("sdp"))
@@ -44,10 +46,13 @@ class SignalingClient(
     }
 
     override fun onLocalDescription(sdp: String) {
-        val json = JSONObject()
-        json.put("type", "sdp")
-        json.put("sdp", sdp)
-        ws.send(json.toString())
+        if (!descriptionSent) {
+            descriptionSent = true
+            val json = JSONObject()
+            json.put("type", "sdp")
+            json.put("sdp", sdp)
+            ws.send(json.toString())
+        }
     }
 
     override fun onLocalCandidate(

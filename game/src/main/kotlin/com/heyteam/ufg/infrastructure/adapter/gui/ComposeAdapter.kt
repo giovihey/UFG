@@ -20,6 +20,7 @@ import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
+import kotlin.system.exitProcess
 
 class ComposeAdapter :
     RenderPort,
@@ -33,6 +34,10 @@ class ComposeAdapter :
 
     override fun render(world: World) {
         worldState = world
+    }
+
+    override fun shutdown() {
+        exitProcess(0)
     }
 
     private val defaultKeyMap: Map<Key, GameButton> =
@@ -55,7 +60,7 @@ class ComposeAdapter :
                 )
 
             Window(
-                onCloseRequest = ::exitApplication,
+                onCloseRequest = ::shutdown,
                 title = "UFG",
                 state = windowState,
                 onPreviewKeyEvent = { event ->
