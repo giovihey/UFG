@@ -11,33 +11,127 @@ permissions:
   pull-requests: write
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            native-lib: channel/build/libwebrtc_wrapper.so
+          - os: windows-latest
+            platform: windows
+            native-lib: channel/build/Release/webrtc_wrapper.dll
+          - os: macos-latest
+            platform: macos
+            native-lib: channel/build/libwebrtc_wrapper.dylib
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: 17
+
+      # libdatachannel for Linux
+      - name: Install dependencies for Linux
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libssl-dev
+
+      - name: Build libdatachannel
+        if: matrix.platform == 'linux'
+        run: |
+          git clone --recurse-submodules https://github.com/paullouisageneau/libdatachannel.git
+          cd libdatachannel
+          cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local
+          cmake --build build -j$(nproc)
+          sudo cmake --install build
+
+      # libdatachannel for macOS
+      - name: Install dependencies for macOS
+        if: matrix.platform == 'macos'
+        run: |
+          brew update
+          brew install cmake openssl
+      - name: Build libdatachannel for macOS
+        if: matrix.platform == 'macos'
+        run: |
+          git clone --recurse-submodules https://github.com/paullouisageneau/libdatachannel.git
+          cd libdatachannel
+          cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DOPENSSL_ROOT_DIR=$(brew --prefix openssl)
+          cmake --build build -j$(sysctl -n hw.ncpu)
+          sudo cmake --install build
+
+        # libdatachannel for Windows
+      - name: Install dependencies for Windows
+        if: matrix.platform == 'windows'
+        run: |
+          git clone --recurse-submodules https://github.com/paullouisageneau/libdatachannel.git
+          cd libdatachannel
+          cmake -B build -DCMAKE_INSTALL_PREFIX=C:/libdatachannel
+          cmake --build build --config Release
+          cmake --install build --config Release
+
+      # build channel native library
+      - name: Build channel native library (macOS and Linux)
+        if: matrix.platform != 'windows'
+        run: |
+          cd channel
+          cmake -B build 
+          cmake --build build
+
+      - name: Build channel native library (Windows)
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          cd channel
+          cmake -B build -DCMAKE_PREFIX_PATH=C:/libdatachannel
+          cmake --build build --config Release
+
+      # Build game JAR
+      - name: Build game JAR (macOS and Linux)
+        if: matrix.platform != 'windows'
+        run: |
+          chmod +x game/gradlew
+          cd game
+          ./gradlew build
+
+      - name: Build game JAR (Windows)
+        if: matrix.platform == 'windows'
+        shell: cmd
+        run: |
+          cd game
+          gradlew.bat build
+
+      # upload artifacts for each platform
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ufg-${{ matrix.platform }}
+          path: |
+            game/build/libs/*.jar
+            ${{ matrix.native-lib }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Build with Gradle
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: build
-
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: jar-package
-          path: build/libs/*.jar
 
       - name: Install semantic-release
         run: npm install -g semantic-release @semantic-release/git @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/release-notes-generator conventional-changelog-conventionalcommits
