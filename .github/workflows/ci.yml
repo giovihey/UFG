@@ -45,10 +45,19 @@ jobs:
       - name: Install build dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++ libssl-dev
 
-      - name: run channel tests
-        run: cd channel/build && ctest --output-on-failure
+      - name: Cache libdatachannel build
+        id: cache-libdc
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/libdatachannel*
+            /usr/local/lib/cmake/LibDataChannel
+            /usr/local/include/rtc
+
+          key: libdatachannel-${{ runner.os }}-v0.21
 
       - name: Build libdatachannel from source
+        if: steps.cache-libdc.outputs.cache-hit != 'true'
         run: |
           git clone --recurse-submodules https://github.com/paullouisageneau/libdatachannel.git
           cd libdatachannel
@@ -61,6 +70,9 @@ jobs:
           cd channel
           cmake -B build
           cmake --build build
+
+      - name: run channel tests
+        run: cd channel/build && ctest --output-on-failure
 
   signaling-server:
     runs-on: ubuntu-latest
