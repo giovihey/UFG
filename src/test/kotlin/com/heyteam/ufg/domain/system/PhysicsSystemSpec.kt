@@ -48,7 +48,7 @@ class PhysicsSystemSpec :
 
         // ========== SINGLE PLAYER PHYSICS ==========
         "World with single player updates correctly" {
-            val player = createPlayer(id = 1, posX = 100.0, posY = GameConstants.FLOOR_Y)
+            val player = createPlayer(id = 1, posX = 200.0, posY = GameConstants.FLOOR_Y)
             val world =
                 World(
                     frameNumber = 0,
@@ -175,7 +175,7 @@ class PhysicsSystemSpec :
             val result = updateWorld(world)
             val updatedPlayer = result.players[1]!!
 
-            updatedPlayer.position.x shouldBe GameConstants.STAGE_MARGIN
+            updatedPlayer.topLeft.x shouldBe GameConstants.STAGE_MARGIN
         }
 
         "Player cannot move right beyond STAGE_WIDTH - STAGE_MARGIN" {
@@ -191,6 +191,6 @@ class PhysicsSystemSpec :
             val result = updateWorld(world)
             val updatedPlayer = result.players[1]!!
 
-            updatedPlayer.position.x shouldBe maxX
+            (updatedPlayer.topLeft.x + updatedPlayer.hurtBox.width) shouldBe maxX
         }
     })

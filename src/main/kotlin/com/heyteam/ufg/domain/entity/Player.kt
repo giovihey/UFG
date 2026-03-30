@@ -16,4 +16,12 @@ data class Player(
     val hurtBox: Rectangle,
     val physicsState: PlayerPhysicsState = PlayerPhysicsState(),
     val attackState: AttackState? = null,
-)
+) {
+    // The top-left corner for rendering and collision, derived from position
+    val topLeft: Position
+        get() =
+            Position(
+                x = position.x - hurtBox.width / 2, // centered horizontally
+                y = position.y - hurtBox.height, // above the feet
+            )
+}

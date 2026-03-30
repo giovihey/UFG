@@ -69,9 +69,9 @@ class PlayerStateSpec :
         }
 
         "IDLE: position unchanged when no input" {
-            val player = createPlayer(direction = 0.0, posX = 100.0, posY = GameConstants.FLOOR_Y)
+            val player = createPlayer(direction = 0.0, posX = 200.0, posY = GameConstants.FLOOR_Y)
             val updated = updatePlayer(player)
-            updated.position.x shouldBe 100.0
+            updated.position.x shouldBe 200.0
             updated.position.y shouldBe GameConstants.FLOOR_Y
         }
 

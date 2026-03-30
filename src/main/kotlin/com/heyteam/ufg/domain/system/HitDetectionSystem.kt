@@ -15,11 +15,16 @@ object HitDetectionSystem {
             val state = attacker.attackState ?: return@forEach
             if (state.hasLanded) return@forEach
 
-            val hitBox = state.activeHitBox(attacker.position) ?: return@forEach
+            val hitBox = state.activeHitBox(attacker.topLeft) ?: return@forEach
             worldForUpdate.players.values
                 .filter { it.id != attacker.id }
                 .forEach { opponent ->
-                    if (hitBox.overlaps(opponent.hurtBox)) {
+                    val opponentHurtBox =
+                        opponent.hurtBox.copy(
+                            x = opponent.topLeft.x,
+                            y = opponent.topLeft.y,
+                        )
+                    if (hitBox.overlaps(opponentHurtBox)) {
                         worldForUpdate = applyHit(worldForUpdate, attacker, opponent, state)
                     }
                 }
