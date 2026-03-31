@@ -77,12 +77,18 @@ vcpkg install libdatachannel:x64-windows
 ```bash
 # 1. Build the C++ WebRTC bridge
 make channel
+# Windows only — override defaults if installed at a different path:
+#  LIBDATACHANNEL_PREFIX  defaults to C:/libdatachannel
+#  OPENSSL_PREFIX         defaults to C:/Program Files/OpenSSL-Win64
+make channel LIBDATACHANNEL_PREFIX=path/to/libdatachannel OPENSSL_PREFIX=path/to/OpenSSL-Win64
 
 # 2. Start the signaling server
 make signaling
 
 # 3. Run the game
 make game
+# Windows only — pass the same overrides used in make channel:
+make host LIBDATACHANNEL_PREFIX=path/to/libdatachannel OPENSSL_PREFIX=path/to/OpenSSL-Win64
 ```
 
 ### Running two players locally
@@ -93,9 +99,14 @@ make signaling
 
 # Terminal 2 — player 1 (host, initiates WebRTC connection)
 make host
+# Windows only — pass the same overrides used in make channel:
+make host LIBDATACHANNEL_PREFIX=path/to/libdatachannel OPENSSL_PREFIX=path/to/OpenSSL-Win64
 
 # Terminal 3 — player 2
 make game
+# Windows only — pass the same overrides used in make channel:
+make game LIBDATACHANNEL_PREFIX=path/to/libdatachannel OPENSSL_PREFIX=path/to/OpenSSL-Win64
+```
 ```
 
 ## Makefile Targets

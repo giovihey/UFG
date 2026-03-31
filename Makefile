@@ -1,10 +1,15 @@
-.PHONY: signaling game channel all clean down
+.PHONY: signaling game channel host all clean down
 
 ifeq ($(OS), Windows_NT)
-    DETECTED_OS := Windows
+DETECTED_OS := Windows
 else
-    DETECTED_OS := $(shell uname -s)
+DETECTED_OS := $(shell uname -s)
 endif
+
+LIBDATACHANNEL_PREFIX ?= C:/libdatachannel
+OPENSSL_PREFIX ?= C:/Program Files/OpenSSL-Win64
+
+WIN_RUNTIME_PATH = %CD%\channel\build\Release;$(subst /,\,$(LIBDATACHANNEL_PREFIX))\bin;$(subst /,\,$(OPENSSL_PREFIX))\bin
 
 all: signaling game
 
@@ -13,23 +18,23 @@ signaling:
 
 host:
 ifeq ($(DETECTED_OS), Windows)
-	cd game && .\gradlew run --args='--host'
+	set "PATH=$(WIN_RUNTIME_PATH);%PATH%" && cd game && .\gradlew run --args='--host'
 else
 	cd game && ./gradlew run --args='--host'
 endif
 
 game:
 ifeq ($(DETECTED_OS), Windows)
-	cd game && .\gradlew run
+	set "PATH=$(WIN_RUNTIME_PATH);%PATH%" && cd game && .\gradlew run
 else
 	cd game && ./gradlew run
 endif
 
 channel:
 ifeq ($(DETECTED_OS), Windows)
-	cd channel && cmake -B build && cmake --build build --config Release
+	cd channel && cmake -B build -DCMAKE_PREFIX_PATH="$(LIBDATACHANNEL_PREFIX);$(OPENSSL_PREFIX)" && cmake --build build --config Release
 else
-    cd channel && cmake -B build && cmake --build build
+	cd channel && cmake -B build && cmake --build build
 endif
 
 down:
@@ -38,7 +43,7 @@ down:
 clean:
 	docker compose down
 ifeq ($(DETECTED_OS), Windows)
-	cd game && .\gradlew clean
+	cmd /c "cd game && gradlew.bat clean"
 else
 	cd game && ./gradlew clean
 endif
