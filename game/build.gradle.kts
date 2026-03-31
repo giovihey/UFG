@@ -42,9 +42,15 @@ dependencies {
 }
 
 application {
+    val osName = System.getProperty("os.name").lowercase()
+    val libPath =
+        when {
+            "windows" in osName -> "${project.rootDir}/../channel/build/Release"
+            else -> "${project.rootDir}/../channel/build"
+        }
     applicationDefaultJvmArgs =
         listOf(
-            "-Djava.library.path=${project.rootDir}/../channel/build",
+            "-Djava.library.path=$libPath",
         )
     mainClass.set("com.heyteam.ufg.MainKt")
 }

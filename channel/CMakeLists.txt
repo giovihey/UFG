@@ -32,3 +32,6 @@ target_link_libraries(local_test PRIVATE
 
 add_executable(protocol_test test/protocol_test.cpp)
 target_link_libraries(protocol_test PRIVATE LibDataChannel::LibDataChannel)
+find_package(Threads REQUIRED)                                                                                                                           
+  find_package(OpenSSL REQUIRED)                                                                                                                           
+  find_package(LibDataChannel REQUIRED)
