@@ -7,17 +7,50 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.heyteam.ufg.domain.config.GameConstants.COLOR_FLOOR
+import com.heyteam.ufg.domain.config.GameConstants.COLOR_STAGE_BACKGROUND
+import com.heyteam.ufg.domain.config.GameConstants.COLOR_STAGE_MARGIN
 import com.heyteam.ufg.domain.config.GameConstants.FLOOR_Y
+import com.heyteam.ufg.domain.config.GameConstants.STAGE_HEIGHT
+import com.heyteam.ufg.domain.config.GameConstants.STAGE_MARGIN
+import com.heyteam.ufg.domain.config.GameConstants.STAGE_WIDTH
 import com.heyteam.ufg.domain.entity.World
 
 @Composable
 fun stageCanvas(world: World) {
     Canvas(modifier = Modifier.fillMaxSize()) {
-        // Draw the floor
+        // Stage background
+        drawRect(
+            color = Color(COLOR_STAGE_BACKGROUND),
+            topLeft = Offset(0f, 0f),
+            size = Size(STAGE_WIDTH.toFloat(), STAGE_HEIGHT.toFloat()),
+        )
+
+        // Stage margin boundaries (left and right walls)
+        drawLine(
+            color = Color(COLOR_STAGE_MARGIN),
+            start = Offset(STAGE_MARGIN.toFloat(), 0f),
+            end = Offset(STAGE_MARGIN.toFloat(), STAGE_HEIGHT.toFloat()),
+            strokeWidth = 1f,
+        )
+        drawLine(
+            color = Color(COLOR_STAGE_MARGIN),
+            start = Offset((STAGE_WIDTH - STAGE_MARGIN).toFloat(), 0f),
+            end = Offset((STAGE_WIDTH - STAGE_MARGIN).toFloat(), STAGE_HEIGHT.toFloat()),
+            strokeWidth = 1f,
+        )
+
+        // Floor
+        drawRect(
+            color = Color(COLOR_FLOOR),
+            topLeft = Offset(0f, FLOOR_Y.toFloat()),
+            size = Size(STAGE_WIDTH.toFloat(), (STAGE_HEIGHT - FLOOR_Y).toFloat()),
+        )
         drawLine(
             color = Color.White,
             start = Offset(0f, FLOOR_Y.toFloat()),
-            end = Offset(size.width, FLOOR_Y.toFloat()),
+            end = Offset(STAGE_WIDTH.toFloat(), FLOOR_Y.toFloat()),
             strokeWidth = 2f,
         )
 
@@ -30,8 +63,8 @@ fun stageCanvas(world: World) {
                 color = Color.Red,
                 topLeft =
                     Offset(
-                        player.position.x.toFloat(),
-                        player.position.y.toFloat(),
+                        player.topLeft.x.toFloat(),
+                        player.topLeft.y.toFloat(),
                     ),
                 size =
                     Size(
@@ -39,6 +72,15 @@ fun stageCanvas(world: World) {
                         player.hurtBox.height.toFloat(),
                     ),
             )
+            // Hitbox — only visible during ACTIVE phase, drawn as outline
+            player.attackState?.activeHitBox(player.topLeft)?.let { box ->
+                drawRect(
+                    color = Color.Yellow,
+                    topLeft = Offset(box.x.toFloat(), box.y.toFloat()),
+                    size = Size(box.width.toFloat(), box.height.toFloat()),
+                    style = Stroke(width = 2f),
+                )
+            }
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.heyteam.ufg.domain.system
 
+import com.heyteam.ufg.domain.component.AttackState
+import com.heyteam.ufg.domain.component.Attacks
 import com.heyteam.ufg.domain.component.Direction
 import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
@@ -11,7 +13,7 @@ object InputSystem {
         world: World,
         input: InputState,
     ): World {
-        when {
+        /*when {
             input.isPressed(GameButton.LEFT) -> println("LEFT")
             input.isPressed(GameButton.DOWN) -> println("DOWN")
             input.isPressed(GameButton.UP) -> println("UP")
@@ -19,7 +21,7 @@ object InputSystem {
             input.isPressed(GameButton.KICK) -> println("KICK")
             input.isPressed(GameButton.PUNCH) -> println("PUNCH")
             input.isPressed(GameButton.JUMP) -> println("JUMP")
-        }
+        }*/
 
         val p1 = world.players[1] ?: return world
         // Horizontal — independent of vertical
@@ -39,6 +41,16 @@ object InputSystem {
                 p1.nextMove.speedY // keep current vertical speed (gravity handles it)
             }
 
+        val newAttackState =
+            when {
+                // already attacking, ignore input
+                p1.attackState != null -> p1.attackState
+
+                input.isPressed(GameButton.PUNCH) -> AttackState(attack = Attacks.JAB)
+
+                else -> null
+            }
+
         val updatedPlayer =
             p1.copy(
                 nextMove =
@@ -46,6 +58,7 @@ object InputSystem {
                         direction = Direction(dx, 0.0),
                         speedY = newSpeedY,
                     ),
+                attackState = newAttackState,
             )
         return world.copyWithUpdatedPlayer(1, updatedPlayer)
     }

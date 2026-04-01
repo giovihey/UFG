@@ -39,8 +39,8 @@ object PhysicsSystem {
         val newSpeedX = player.nextMove.direction.x * GameConstants.WALK_SPEED
         val newX =
             (player.position.x + newSpeedX * dt).coerceIn(
-                GameConstants.STAGE_MARGIN,
-                GameConstants.STAGE_WIDTH - GameConstants.STAGE_MARGIN,
+                GameConstants.STAGE_MARGIN + player.hurtBox.width / 2,
+                GameConstants.STAGE_WIDTH - GameConstants.STAGE_MARGIN - player.hurtBox.width / 2,
             )
 
         val isGrounded = newY >= GameConstants.FLOOR_Y
