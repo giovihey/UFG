@@ -37,6 +37,7 @@ class ComposeAdapter :
     }
 
     override fun shutdown() {
+        // TODO here we have to add some logic that stops the loop inside gameloop running
         exitProcess(0)
     }
 

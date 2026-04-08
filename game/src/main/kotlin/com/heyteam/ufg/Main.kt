@@ -50,12 +50,6 @@ fun main(args: Array<String>) {
     }
     println("Connected! Starting game.")
 
-    Runtime.getRuntime().addShutdownHook(
-        Thread {
-            Runtime.getRuntime().halt(0)
-        },
-    )
-
     val loop =
         GameLoop(
             gameEngine = engine,
