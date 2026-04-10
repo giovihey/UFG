@@ -1,7 +1,0 @@
-{
-  "tagline": "multiplayer online fighting game",
-  "status": "active",
-  "tags": ["distributed-systems", "game", "multi-platform", "jni"],
-  "cover": "cover.png",
-  "order": 1
-}
