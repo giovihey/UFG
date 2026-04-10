@@ -1,3 +1,9 @@
+## [3.2.1](https://github.com/giovihey/UFG/compare/v3.2.0...v3.2.1) (2026-04-10)
+
+### Bug Fixes
+
+* remove meta file ([bfb74da](https://github.com/giovihey/UFG/commit/bfb74da40ee0a3705311655628e8ac8a2103eb8a))
+
 ## [3.2.0](https://github.com/giovihey/UFG/compare/v3.1.0...v3.2.0) (2026-03-30)
 
 ### Features
