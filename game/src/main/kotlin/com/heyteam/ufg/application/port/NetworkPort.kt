@@ -5,4 +5,6 @@ import com.heyteam.ufg.application.port.output.NetworkOutputPort
 
 interface NetworkPort :
     NetworkInputPort,
-    NetworkOutputPort
+    NetworkOutputPort {
+    fun isConnected(): Boolean
+}

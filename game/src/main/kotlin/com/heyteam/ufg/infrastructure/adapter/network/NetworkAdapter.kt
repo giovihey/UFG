@@ -38,9 +38,14 @@ class NetworkAdapter(
         receivedInputs.put(frameNumber, InputState(inputMask))
     }
 
-    fun isConnected(): Boolean = connected
+    override fun isConnected(): Boolean = connected
 
     override fun onDataChannelOpen() {
         connected = true
+    }
+
+    override fun onDataChannelClose() {
+        println("Peer disconnected. Closing game.")
+        connected = false
     }
 }

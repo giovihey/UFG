@@ -29,6 +29,11 @@ class WebRtcBridge : PeerConnectionBridge {
         dataChannelListener?.onDataChannelOpen()
     }
 
+    fun onDataChannelClose() {
+        println("C++ fired onDataChannelClose")
+        dataChannelListener?.onDataChannelClose()
+    }
+
     fun onRemoteInput(
         inputMask: Int,
         frameNumber: Long,

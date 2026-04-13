@@ -20,12 +20,13 @@ import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
-import kotlin.system.exitProcess
 
 class ComposeAdapter :
     RenderPort,
     KeyboardInputPort {
     @Volatile private var currentBitMask: Int = 0
+
+    var onShutdown: (() -> Unit)? = null
 
     // mutableStateOf is thread-safe for reads/writes
     // mutableStateOf is the magic — unlike @Volatile, Compose observes it. When the game loop
@@ -37,8 +38,7 @@ class ComposeAdapter :
     }
 
     override fun shutdown() {
-        // TODO here we have to add some logic that stops the loop inside gameloop running
-        exitProcess(0)
+        onShutdown?.invoke()
     }
 
     private val defaultKeyMap: Map<Key, GameButton> =
@@ -61,7 +61,10 @@ class ComposeAdapter :
                 )
 
             Window(
-                onCloseRequest = ::shutdown,
+                onCloseRequest = {
+                    shutdown()
+                    exitApplication()
+                },
                 title = "UFG",
                 state = windowState,
                 onPreviewKeyEvent = { event ->

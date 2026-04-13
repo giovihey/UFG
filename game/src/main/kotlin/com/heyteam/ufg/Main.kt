@@ -68,6 +68,11 @@ fun main(args: Array<String>) {
             isHost = isHost,
         )
 
+    composeAdapter.onShutdown = {
+        loop.stop()
+        // We can add more cleanup here if needed
+    }
+
     Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
 
     composeAdapter.startUI()

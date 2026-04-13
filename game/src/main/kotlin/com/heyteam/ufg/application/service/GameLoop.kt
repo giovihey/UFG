@@ -14,32 +14,26 @@ class GameLoop(
     private val networkPort: NetworkPort,
     private val isHost: Boolean,
 ) {
+    @Volatile private var isRunning = true
+
+    fun stop() {
+        isRunning = false
+    }
+
     fun start() {
-        var isRunning = true
+        isRunning = true
         while (isRunning) {
             val timeStepResult: FixedTimestepResult = timeManager.update()
-            repeat(minOf(timeStepResult.steps, 1)) {
-                val frame = gameEngine.getWorld().frameNumber
-                val localInput: InputState = inputPort.pollInputState(if (isHost) 1 else 2)
-                println("Sending frame $frame, steps=$timeStepResult.steps")
-                networkPort.sendInput(localInput, frame)
+            val steps = minOf(timeStepResult.steps, 1)
 
-                // block until remote input arrives for this frame
-                var remoteInput = networkPort.pollRemoteInput(frame)
-                while (remoteInput == null) {
-                    Thread.sleep(1)
-                    remoteInput = networkPort.pollRemoteInput(frame)
+            repeat(steps) {
+                if (!processFrame(timeStepResult)) {
+                    isRunning = false
                 }
-
-                val inputs =
-                    if (isHost) {
-                        mapOf(1 to localInput, 2 to remoteInput)
-                    } else {
-                        mapOf(1 to remoteInput, 2 to localInput)
-                    }
-
-                gameEngine.step(inputs, timeStepResult.fixedDt)
             }
+
+            if (!isRunning) break
+
             renderPort.render(gameEngine.getWorld())
             if (gameEngine.getWorld().gameStatus == GameStatus.ROUND_END) {
                 isRunning = false
@@ -47,5 +41,33 @@ class GameLoop(
                 renderPort.shutdown()
             }
         }
+    }
+
+    private fun processFrame(timeStepResult: FixedTimestepResult): Boolean {
+        val frame = gameEngine.getWorld().frameNumber
+        val localInput: InputState = inputPort.pollInputState(if (isHost) 1 else 2)
+        println("Sending frame $frame, steps=$timeStepResult.steps")
+        networkPort.sendInput(localInput, frame)
+
+        // block until remote input arrives for this frame
+        var remoteInput = networkPort.pollRemoteInput(frame)
+        while (remoteInput == null) {
+            if (!networkPort.isConnected()) {
+                println("Peer disconnected. Stopping game loop.")
+                return false
+            }
+            Thread.sleep(1)
+            remoteInput = networkPort.pollRemoteInput(frame)
+        }
+
+        val inputs =
+            if (isHost) {
+                mapOf(1 to localInput, 2 to remoteInput)
+            } else {
+                mapOf(1 to remoteInput, 2 to localInput)
+            }
+
+        gameEngine.step(inputs, timeStepResult.fixedDt)
+        return true
     }
 }

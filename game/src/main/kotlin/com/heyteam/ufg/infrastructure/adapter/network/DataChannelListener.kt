@@ -7,4 +7,6 @@ interface DataChannelListener {
     )
 
     fun onDataChannelOpen()
+
+    fun onDataChannelClose()
 }
