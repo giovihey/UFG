@@ -1,3 +1,12 @@
+## [3.2.2](https://github.com/giovihey/UFG/compare/v3.2.1...v3.2.2) (2026-04-13)
+
+### Bug Fixes
+
+* graceful shutdown from libdatachannel tunnel ([97c475f](https://github.com/giovihey/UFG/commit/97c475f295c154e6c4738df4f6cd67c2eb0004e1))
+* implement graceful shutdown to remove deadlock on closing ([9d6bb6f](https://github.com/giovihey/UFG/commit/9d6bb6f21ff3df9c0b525af27352fcb274f7ad51))
+* remove meta file ([c579af9](https://github.com/giovihey/UFG/commit/c579af9c1a18541728535210a42d71f04d536859))
+* update blocking logic, but it should still fail ([872022c](https://github.com/giovihey/UFG/commit/872022c202d639dd11fd7370c38804ca79198d7d))
+
 ## [3.2.1](https://github.com/giovihey/UFG/compare/v3.2.0...v3.2.1) (2026-04-10)
 
 ### Bug Fixes
