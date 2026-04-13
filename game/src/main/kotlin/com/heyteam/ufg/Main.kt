@@ -14,9 +14,11 @@ import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.NetworkAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.SignalingClient
 import com.heyteam.ufg.infrastructure.adapter.network.WebRtcBridge
+import kotlin.system.exitProcess
 
 // ── Initial player / character data ──────────────────────────────────────────
-const val P1_START_X = 100.0
+const val P1_START_X = 150.0
+const val P2_START_X = 600.0
 const val PLAYER_HURTBOX_W = 50.0
 const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
@@ -31,6 +33,12 @@ fun main(args: Array<String>) {
     // Listeners ASSEMBLE!!!
     bridge.dataChannelListener = networkAdapter
     signalingClient.connect()
+
+    if (!signalingClient.isReady()) {
+        println("ERROR: Could not connect to signaling server at $signalingServerDefault")
+        println("Make sure the signaling server is running.")
+        exitProcess(1)
+    }
 
     bridge.initialize("stun:stun.l.google.com:19302")
 
@@ -56,8 +64,8 @@ fun main(args: Array<String>) {
             inputPort = composeAdapter,
             renderPort = composeAdapter,
             timeManager = timeManager,
-            netSender = networkAdapter,
-            netReceiver = networkAdapter,
+            networkPort = networkAdapter,
+            isHost = isHost,
         )
 
     Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
@@ -66,7 +74,7 @@ fun main(args: Array<String>) {
 }
 
 fun createWorld(): World {
-    val player =
+    val p1 =
         Player(
             id = 1,
             name = "P1",
@@ -81,5 +89,20 @@ fun createWorld(): World {
             health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
             hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
         )
-    return World(frameNumber = 0L, players = mapOf(1 to player))
+    val p2 =
+        Player(
+            id = 2,
+            name = "P2",
+            position = Position(P2_START_X, 0.0),
+            nextMove =
+                Movement(
+                    direction = Direction(0.0, 0.0),
+                    position = Position(P2_START_X, 0.0),
+                    speedX = 0.0,
+                    speedY = 0.0,
+                ),
+            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
+            hurtBox = Rectangle(P2_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
+        )
+    return World(frameNumber = 0L, players = mapOf(1 to p1, 2 to p2))
 }

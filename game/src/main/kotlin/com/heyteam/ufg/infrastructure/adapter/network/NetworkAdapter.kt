@@ -1,14 +1,12 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
-import com.heyteam.ufg.application.port.input.NetworkInputPort
-import com.heyteam.ufg.application.port.output.NetworkOutputPort
+import com.heyteam.ufg.application.port.NetworkPort
 import com.heyteam.ufg.domain.component.InputState
 import java.util.concurrent.ConcurrentHashMap
 
 class NetworkAdapter(
     private val bridge: PeerConnectionBridge,
-) : NetworkOutputPort,
-    NetworkInputPort,
+) : NetworkPort,
     DataChannelListener {
 //    Thread 1: libdatachannel's internal thread
 //    → receives bytes from remote player

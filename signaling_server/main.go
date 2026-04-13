@@ -88,9 +88,12 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// server starts
 func main() {
+	// register /ws route and listens on :8080
 	http.HandleFunc("/ws", handleWebSocket)
 
+	//
 	fmt.Println("signaling server running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
