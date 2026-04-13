@@ -40,6 +40,11 @@ extern "C" {
   Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_sendInput(
       JNIEnv *env, jobject obj, jint inputMask, jlong frameNumber);
 
+  // Close the peer connection and data channel
+  JNIEXPORT void JNICALL
+  Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_close(
+      JNIEnv *env, jobject obj);
+
 #ifdef __cplusplus
 }
 #endif

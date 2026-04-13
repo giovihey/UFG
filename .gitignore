@@ -18,6 +18,7 @@ node_modules/
 
 # Specific 
 CLAUDE.md
+GEMINI.md
 game/bin/
 
 # AWS User-specific

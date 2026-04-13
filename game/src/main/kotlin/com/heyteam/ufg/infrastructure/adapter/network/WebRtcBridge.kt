@@ -1,5 +1,6 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
+@Suppress("TooManyFunctions")
 class WebRtcBridge : PeerConnectionBridge {
     companion object {
         init {
@@ -29,6 +30,11 @@ class WebRtcBridge : PeerConnectionBridge {
         dataChannelListener?.onDataChannelOpen()
     }
 
+    fun onDataChannelClose() {
+        println("C++ fired onDataChannelClose")
+        dataChannelListener?.onDataChannelClose()
+    }
+
     fun onRemoteInput(
         inputMask: Int,
         frameNumber: Long,
@@ -52,4 +58,6 @@ class WebRtcBridge : PeerConnectionBridge {
         inputMask: Int,
         frameNumber: Long,
     )
+
+    external override fun close()
 }

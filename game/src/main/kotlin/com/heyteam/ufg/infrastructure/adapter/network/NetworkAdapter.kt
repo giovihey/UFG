@@ -1,14 +1,12 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
-import com.heyteam.ufg.application.port.input.NetworkInputPort
-import com.heyteam.ufg.application.port.output.NetworkOutputPort
+import com.heyteam.ufg.application.port.NetworkPort
 import com.heyteam.ufg.domain.component.InputState
 import java.util.concurrent.ConcurrentHashMap
 
 class NetworkAdapter(
     private val bridge: PeerConnectionBridge,
-) : NetworkOutputPort,
-    NetworkInputPort,
+) : NetworkPort,
     DataChannelListener {
 //    Thread 1: libdatachannel's internal thread
 //    → receives bytes from remote player
@@ -20,7 +18,8 @@ class NetworkAdapter(
 //    → calls pollRemoteInput()
 //    → READS from the queue
     private val receivedInputs = ConcurrentHashMap<Long, InputState>()
-    private var connected = false
+
+    @Volatile private var connected = false
 
     override fun sendInput(
         inputState: InputState,
@@ -40,9 +39,18 @@ class NetworkAdapter(
         receivedInputs.put(frameNumber, InputState(inputMask))
     }
 
-    fun isConnected(): Boolean = connected
+    override fun isConnected(): Boolean = connected
 
     override fun onDataChannelOpen() {
         connected = true
+    }
+
+    override fun onDataChannelClose() {
+        println("Peer disconnected. Closing game.")
+        connected = false
+    }
+
+    override fun close() {
+        bridge.close()
     }
 }

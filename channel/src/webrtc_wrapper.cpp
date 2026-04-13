@@ -83,6 +83,17 @@ JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRt
             jvm->DetachCurrentThread();
         });
 
+        dc->onClosed([]() {
+            std::cout << "Data channel closed" << std::endl;
+            JNIEnv *env;
+            jvm->AttachCurrentThread((void **) &env, nullptr);
+
+            jclass cls = env->GetObjectClass(callbackObj);
+            jmethodID mid = env->GetMethodID(cls, "onDataChannelClose", "()V");
+            env->CallVoidMethod(callbackObj, mid);
+            jvm->DetachCurrentThread();
+        });
+
         dc->onMessage([](auto message) {
             // Called when we receive data from the other player
             // 1. get a JNI env for this thread
@@ -104,6 +115,37 @@ JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRt
             jvm->DetachCurrentThread();
         });
     });
+
+    peerConnection->onStateChange([](rtc::PeerConnection::State state) {
+        std::cout << "Peer connection state changed to: " << (int)state << std::endl;
+        if (state == rtc::PeerConnection::State::Disconnected || 
+            state == rtc::PeerConnection::State::Failed || 
+            state == rtc::PeerConnection::State::Closed) {
+            
+            JNIEnv *env;
+            jvm->AttachCurrentThread((void **) &env, nullptr);
+            jclass cls = env->GetObjectClass(callbackObj);
+            jmethodID mid = env->GetMethodID(cls, "onDataChannelClose", "()V");
+            env->CallVoidMethod(callbackObj, mid);
+            jvm->DetachCurrentThread();
+        }
+    });
+}
+
+JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_close(JNIEnv *env, jobject obj) {
+    std::cout << "Closing native WebRTC bridge" << std::endl;
+    if (dataChannel) {
+        dataChannel->close();
+        dataChannel.reset();
+    }
+    if (peerConnection) {
+        peerConnection->close();
+        peerConnection.reset();
+    }
+    if (callbackObj) {
+        env->DeleteGlobalRef(callbackObj);
+        callbackObj = nullptr;
+    }
 }
 
 JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_sendInput(JNIEnv *env,
