@@ -18,7 +18,8 @@ class NetworkAdapter(
 //    → calls pollRemoteInput()
 //    → READS from the queue
     private val receivedInputs = ConcurrentHashMap<Long, InputState>()
-    private var connected = false
+
+    @Volatile private var connected = false
 
     override fun sendInput(
         inputState: InputState,
@@ -47,5 +48,9 @@ class NetworkAdapter(
     override fun onDataChannelClose() {
         println("Peer disconnected. Closing game.")
         connected = false
+    }
+
+    override fun close() {
+        bridge.close()
     }
 }

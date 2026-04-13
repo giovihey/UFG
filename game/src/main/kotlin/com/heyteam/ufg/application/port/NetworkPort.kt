@@ -7,4 +7,6 @@ interface NetworkPort :
     NetworkInputPort,
     NetworkOutputPort {
     fun isConnected(): Boolean
+
+    fun close()
 }

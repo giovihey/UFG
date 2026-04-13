@@ -70,6 +70,7 @@ fun main(args: Array<String>) {
 
     composeAdapter.onShutdown = {
         loop.stop()
+        networkAdapter.close()
         // We can add more cleanup here if needed
     }
 

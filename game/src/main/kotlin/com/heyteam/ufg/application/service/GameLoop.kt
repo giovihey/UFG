@@ -52,8 +52,8 @@ class GameLoop(
         // block until remote input arrives for this frame
         var remoteInput = networkPort.pollRemoteInput(frame)
         while (remoteInput == null) {
-            if (!networkPort.isConnected()) {
-                println("Peer disconnected. Stopping game loop.")
+            if (!networkPort.isConnected() || !isRunning) {
+                println("Stopping game loop (Connected: ${networkPort.isConnected()}, Running: $isRunning)")
                 return false
             }
             Thread.sleep(1)
