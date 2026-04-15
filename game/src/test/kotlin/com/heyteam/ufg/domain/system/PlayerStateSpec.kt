@@ -1,5 +1,7 @@
 package com.heyteam.ufg.domain.system
 
+import com.heyteam.ufg.domain.component.AttackState
+import com.heyteam.ufg.domain.component.Attacks
 import com.heyteam.ufg.domain.component.Direction
 import com.heyteam.ufg.domain.component.GameStatus
 import com.heyteam.ufg.domain.component.Health
@@ -67,9 +69,9 @@ class PlayerStateSpec :
         }
 
         "IDLE: position unchanged when no input" {
-            val player = createPlayer(direction = 0.0, posX = 100.0, posY = GameConstants.FLOOR_Y)
+            val player = createPlayer(direction = 0.0, posX = 200.0, posY = GameConstants.FLOOR_Y)
             val updated = updatePlayer(player)
-            updated.position.x shouldBe 100.0
+            updated.position.x shouldBe 200.0
             updated.position.y shouldBe GameConstants.FLOOR_Y
         }
 
@@ -136,5 +138,28 @@ class PlayerStateSpec :
             player.nextMove.speedY shouldBe 0.0
             player.position.y shouldBe GameConstants.FLOOR_Y
             player.physicsState.state shouldBe PlayerState.IDLE
+        }
+
+        // ========== ATTACKING STATE ==========
+        "ATTACKING: state is ATTACKING when attackState is present" {
+            val player =
+                createPlayer().copy(
+                    attackState = AttackState(attack = Attacks.JAB, currentFrame = 0),
+                )
+            val world = World(frameNumber = 0, players = mapOf(1 to player), gameStatus = GameStatus.RUNNING)
+            val updated = AttackSystem.update(world).players[1]!!
+            updated.physicsState.state shouldBe PlayerState.ATTACKING
+        }
+
+        "ATTACKING: state returns to IDLE when attack expires" {
+            val totalFrames = Attacks.JAB.startupFrames + Attacks.JAB.activeFrames + Attacks.JAB.recoveryFrames
+            val player =
+                createPlayer().copy(
+                    attackState = AttackState(attack = Attacks.JAB, currentFrame = totalFrames),
+                )
+            val world = World(frameNumber = 0, players = mapOf(1 to player), gameStatus = GameStatus.RUNNING)
+            val updated = AttackSystem.update(world).players[1]!!
+            updated.physicsState.state shouldBe PlayerState.IDLE
+            updated.attackState shouldBe null
         }
     })

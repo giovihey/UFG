@@ -13,8 +13,11 @@ object GameConstants {
     // Stage
     const val STAGE_MARGIN = 100.0 // pixels from edge
     const val STAGE_WIDTH = 800.0
-    const val STAGE_HEIGHT = 300.0
-    const val FLOOR_Y = 220.0 // Ground level
+    const val STAGE_HEIGHT = 600.0
+    const val FLOOR_Y = 320.0 // Ground level
+    const val COLOR_STAGE_BACKGROUND = 0xFF1A1A2E
+    const val COLOR_STAGE_MARGIN = 0xFF444466
+    const val COLOR_FLOOR = 0xFF2A2A4A
 
     const val PLAYER_DAMAGE_PER_FRAME = 25 // health points per frame
 
