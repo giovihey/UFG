@@ -58,7 +58,7 @@ class InputSystemSpec :
             player: Player,
             vararg buttons: GameButton,
         ): Player {
-            val result = InputSystem.apply(worldWith(player), inputOf(*buttons))
+            val result = InputSystem.apply(worldWith(player), mapOf(1 to inputOf(*buttons)))
             return result.players[1]!!
         }
 
@@ -125,14 +125,14 @@ class InputSystemSpec :
         }
 
         // ========== MISSING PLAYER ==========
-        "returns world unchanged if player 1 does not exist" {
+        "returns world unchanged if no players exist" {
             val emptyWorld =
                 World(
                     frameNumber = 0,
                     players = emptyMap(),
                     gameStatus = GameStatus.RUNNING,
                 )
-            val result = InputSystem.apply(emptyWorld, inputOf(GameButton.RIGHT))
+            val result = InputSystem.apply(emptyWorld, mapOf(1 to inputOf(GameButton.RIGHT)))
             result shouldBe emptyWorld
         }
 

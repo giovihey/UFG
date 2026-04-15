@@ -8,10 +8,10 @@ import com.heyteam.ufg.domain.entity.World
 object GameLogic {
     fun step(
         world: World,
-        input: InputState,
+        inputs: Map<Int, InputState>,
         fixedDt: Double,
     ): World {
-        var next = InputSystem.apply(world, input)
+        var next = InputSystem.apply(world, inputs)
         next = AttackSystem.update(next)
         next = PhysicsSystem.update(next, fixedDt)
         next = HitDetectionSystem.update(next)

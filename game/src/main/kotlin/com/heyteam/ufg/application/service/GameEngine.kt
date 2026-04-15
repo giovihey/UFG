@@ -10,9 +10,9 @@ class GameEngine(
     fun getWorld(): World = world
 
     fun step(
-        inputState: InputState,
+        inputs: Map<Int, InputState>,
         fixedDt: Double,
     ) {
-        world = GameLogic.step(world, inputState, fixedDt)
+        world = GameLogic.step(world, inputs, fixedDt)
     }
 }

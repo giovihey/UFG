@@ -45,13 +45,19 @@ class SignalingClient(
         bridge.signalingListener = this
     }
 
+    fun isReady(): Boolean = ::ws.isInitialized && ws.isOpen
+
     override fun onLocalDescription(sdp: String) {
         if (!descriptionSent) {
-            descriptionSent = true
-            val json = JSONObject()
-            json.put("type", "sdp")
-            json.put("sdp", sdp)
-            ws.send(json.toString())
+            if (ws.isOpen) {
+                descriptionSent = true
+                val json = JSONObject()
+                json.put("type", "sdp")
+                json.put("sdp", sdp)
+                ws.send(json.toString())
+            } else {
+                println("Warning: Cannot send local description, signaling WebSocket is not open")
+            }
         }
     }
 
@@ -59,10 +65,14 @@ class SignalingClient(
         candidate: String,
         mid: String,
     ) {
-        val json = JSONObject()
-        json.put("type", "ice")
-        json.put("candidate", candidate)
-        json.put("mid", mid)
-        ws.send(json.toString())
+        if (ws.isOpen) {
+            val json = JSONObject()
+            json.put("type", "ice")
+            json.put("candidate", candidate)
+            json.put("mid", mid)
+            ws.send(json.toString())
+        } else {
+            println("Warning: Cannot send local candidate, signaling WebSocket is not open")
+        }
     }
 }

@@ -59,8 +59,9 @@ fun stageCanvas(world: World) {
 
         // Draw each player as a rectangle (their hurtbox)
         world.players.values.forEach { player ->
+            val color = if (player.id == 1) Color.Blue else Color.Red
             drawRect(
-                color = Color.Red,
+                color = color,
                 topLeft =
                     Offset(
                         player.topLeft.x.toFloat(),

@@ -16,4 +16,6 @@ interface PeerConnectionBridge {
         inputMask: Int,
         frameNumber: Long,
     )
+
+    fun close()
 }
