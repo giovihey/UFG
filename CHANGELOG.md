@@ -1,3 +1,16 @@
+## [3.3.0](https://github.com/giovihey/UFG/compare/v3.2.2...v3.3.0) (2026-04-15)
+
+### Features
+
+* recovery of the changes done before WebRTC bridge ([cbc8326](https://github.com/giovihey/UFG/commit/cbc8326a0f27d7133b9db4fc5472545e93a99eac))
+
+### Bug Fixes
+
+* merge multiplayer ([e36970c](https://github.com/giovihey/UFG/commit/e36970ca3e8093fa45bb753f62794f9d67a00c73))
+* now build on Windows ([5ffa51f](https://github.com/giovihey/UFG/commit/5ffa51ff18a9c97751244d3dd54955454ed01872))
+* now build on Windows ([063e275](https://github.com/giovihey/UFG/commit/063e2758a3edc0b931ba2f052c914d6984c74c0d))
+* now make works Windows ([8a6242a](https://github.com/giovihey/UFG/commit/8a6242a8b2e39cc20a7357398dcd1f92df1202a3))
+
 ## [3.2.2](https://github.com/giovihey/UFG/compare/v3.2.1...v3.2.2) (2026-04-13)
 
 ### Bug Fixes
