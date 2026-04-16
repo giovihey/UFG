@@ -1,3 +1,9 @@
+## [3.4.0](https://github.com/giovihey/UFG/compare/v3.3.0...v3.4.0) (2026-04-16)
+
+### Features
+
+* add attacks with damage ([22ce9ae](https://github.com/giovihey/UFG/commit/22ce9ae2443b370c900723854de6be338f33c195))
+
 ## [3.3.0](https://github.com/giovihey/UFG/compare/v3.2.2...v3.3.0) (2026-04-15)
 
 ### Features
