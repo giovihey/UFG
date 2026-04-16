@@ -1,57 +1,49 @@
 # User Guide
 
-This section explains how to use the system effectively.
+## Controls
 
-## Getting Started
+| Key | Action |
+|-----|--------|
+| **W** | Up |
+| **A** | Move left |
+| **S** | Down |
+| **D** | Move right |
+| **Space** | Jump |
+| **P** | Punch (JAB) |
+| **K** | Kick (not yet implemented) |
 
-### First Time Setup
+## Gameplay
 
-1. Navigate to application homepage
-2. Click "Sign Up" to create an account
-3. Enter your details:
-   - Name
-   - Email
-   - Password (minimum 8 characters)
-4. Verify your email address via confirmation link
-5. Log in with your credentials
+### Starting a Match
 
-### Dashboard Overview
+1. Launch the game (see [Deployment](deployment.md))
+2. Once two players are connected via WebRTC, the match starts automatically
+3. Both players spawn on opposite sides of the stage
 
-Once logged in, you'll see the main dashboard with:
+### Combat
 
-- **Navigation Bar** - Access different sections of the application
-- **Welcome Message** - Personalized greeting with current status
-- **Quick Actions** - Fast access to common tasks
-- **Notifications** - Updates about your activities
+- **Move** with A/D to approach or retreat
+- **Jump** with Space — you can't double-jump
+- **Punch** with P to throw a JAB. The JAB has:
+    - 4 frames of startup (you're committed, can't cancel)
+    - 3 frames where the hitbox is active (can damage)
+    - 8 frames of recovery (you're vulnerable)
+- **Hits** deal damage and cause **hitstun** — the opponent can't act for a brief moment and gets pushed away (knockback)
 
-## Main Features
+### Winning
 
-### Feature 1: [Feature Name]
+A round ends when:
 
-**Purpose**: [What does this feature do?]
+- A player's HP reaches **0**, or
+- The **timer** reaches 0 — the player with more HP wins
 
-**How to Use**:
+### HUD
 
-1. [Step 1]
-2. [Step 2]
-3. [Step 3]
+- **Health bars** at the top — P1 (red, left), P2 (blue, right)
+- **Timer** centered at the top — counts down from 99 seconds
 
-**Expected Result**: [What happens]
+### Visual Cues
 
-**Example**:
-
-```
-Navigate to Feature section
-Click "Create New"
-Enter details
-Click "Save"
-✓ Item created successfully
-```
-
----
-
-### Feature 2: [Feature Name]
-
-[Continue with additional features...]
-
-
+- **Blue rectangle** = Player 1
+- **Red rectangle** = Player 2
+- **Yellow outline** = active attack hitbox (only visible during the active frames)

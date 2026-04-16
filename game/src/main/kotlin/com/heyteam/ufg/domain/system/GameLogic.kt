@@ -2,6 +2,7 @@ package com.heyteam.ufg.domain.system
 
 import com.heyteam.ufg.domain.component.GameStatus
 import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.config.GameConstants
 import com.heyteam.ufg.domain.entity.World
 
 // these are pure rules
@@ -22,10 +23,20 @@ object GameLogic {
 
     private fun applyGameRules(world: World): World {
         if (world.gameStatus != GameStatus.RUNNING) return world
-        return if (world.isRoundOver()) {
-            world.copy(gameStatus = GameStatus.ROUND_END)
+
+        val updatedTimer =
+            if (world.frameNumber > 0 && world.frameNumber % GameConstants.FRAMES_PER_SECOND == 0L) {
+                (world.roundTimer - 1).coerceAtLeast(0)
+            } else {
+                world.roundTimer
+            }
+
+        val updatedWorld = world.copy(roundTimer = updatedTimer)
+
+        return if (updatedWorld.isRoundOver()) {
+            updatedWorld.copy(gameStatus = GameStatus.ROUND_END)
         } else {
-            world
+            updatedWorld
         }
     }
 }

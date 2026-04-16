@@ -1,456 +1,100 @@
 # Implementation
 
-This section discusses technology-dependent implementation choices made during system realization.
+## Tech Stack
 
-## Network Protocols
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Language | **Kotlin** (JVM) | Course requirement. Cross-platform, expressive, null-safe |
+| UI | **Compose Desktop** | Declarative UI for Kotlin. Thread-safe state observation via `mutableStateOf`. No Swing boilerplate |
+| Networking | **libdatachannel** (C++) | Lightweight WebRTC — data channels only, ~2 MB. Connected via JNI |
+| Signaling | **Go WebSocket server** | Relays SDP/ICE during connection setup. Stateless, minimal |
+| Build | **Gradle** (Kotlin DSL) | Standard Kotlin build tool. Manages Compose plugin, detekt, ktlint, Kotest |
+| Testing | **Kotest** + JUnit5 | Kotlin-native test framework with expressive spec styles |
+| Code quality | **ktlint** + **detekt** | Formatting enforcement + static analysis. Warnings are errors |
 
-### Protocols Used
+## Network Protocol
 
-**Protocol: [HTTP/REST]**
+### Transport: WebRTC Data Channel
 
-- **Why Chosen**: [Standard web protocol, easy integration, widespread support]
-- **Use Cases**: [CRUD operations, user-facing APIs]
-- **Version**: [HTTP/1.1 / HTTP/2 / HTTP/3]
-- **Example Endpoint**:
-  ```
-  GET /api/users/123
-  Content-Type: application/json
-  
-  Response:
-  {
-    "id": "123",
-    "name": "John Doe",
-    "email": "john@example.com"
-  }
-  ```
+- **Underlying protocol**: SCTP over DTLS over UDP
+- **Delivery mode**: Unordered, unreliable (mimics raw UDP)
+- **Encryption**: DTLS (automatic with WebRTC)
+- **Payload**: `InputState` bitmask (`Int`, 4 bytes) + frame number (`Long`, 8 bytes) = 12 bytes per packet
 
----
+### Signaling: WebSocket + JSON
 
-**Protocol: [WebSocket]**
+During connection setup only. Messages:
 
-- **Why Chosen**: [Real-time bidirectional communication]
-- **Use Cases**: [Live notifications, real-time updates]
-- **Message Format**: [JSON / Binary]
-- **Example**:
-  ```
-  Client → Server: {"type": "subscribe", "channel": "notifications"}
-  Server → Client: {"type": "event", "data": {...}}
-  ```
+```json
+{"type": "sdp", "sdp": "<SDP text blob>"}
+{"type": "ice", "candidate": "<candidate>", "mid": "<media ID>"}
+```
 
----
+The signaling server is a simple Go WebSocket relay. It forwards messages between the two connected clients and is not needed after the P2P connection is established.
 
-**Protocol: [gRPC]**
+## Frame Data System
 
-- **Why Chosen**: [High-performance inter-service communication]
-- **Use Cases**: [Service-to-service communication]
-- **IDL Language**: [Protocol Buffers]
+Attacks are defined by frame counts at 60 FPS:
 
----
+```
+JAB: 4 startup → 3 active → 8 recovery = 15 total frames (250 ms)
+     hitstunFrames: 12 (200 ms opponent can't act)
+     knockbackSpeed: 150 px/s
+     damage: 5
+```
 
-**Protocol: [AMQP / MQTT / NATS]**
+| Phase | What happens |
+|-------|-------------|
+| **Startup** | Attack is committed but hitbox isn't active yet. The attacker is vulnerable |
+| **Active** | Hitbox is live. If it overlaps an opponent's hurtbox, the hit registers |
+| **Recovery** | Attack is ending. Hitbox gone, attacker can't act yet |
 
-- **Why Chosen**: [Asynchronous messaging]
-- **Use Cases**: [Event publishing, task queuing]
-- **Message Types**: [Events / Commands / Responses]
+Hitbox position is computed relative to the player's `topLeft` corner during the ACTIVE phase only: `attack.hitBox.copy(x = topLeft.x + offset.x, y = topLeft.y + offset.y)`.
 
-## Data Serialization Formats
+## Physics
 
-### Format: JSON
+All values in `GameConstants`:
 
-- **Why Chosen**: [Human-readable, widely supported, native to JavaScript/web]
-- **Use Cases**: [REST APIs, Configuration, Logging]
-- **Example**:
-  ```json
-  {
-    "event_type": "UserCreated",
-    "timestamp": "2025-11-11T21:09:00Z",
-    "data": {
-      "user_id": "123",
-      "name": "John Doe"
-    }
-  }
-  ```
-- **Schema Validation**: [JSON Schema / OpenAPI]
+| Constant | Value | Unit |
+|----------|-------|------|
+| `WALK_SPEED` | 120 | px/s |
+| `JUMP_INITIAL_VELOCITY` | -350 | px/s (negative = up) |
+| `GRAVITY` | 1000 | px/s^2 |
+| `MAX_FALL_SPEED` | 500 | px/s |
+| `FLOOR_Y` | 320 | px |
+| `STAGE_WIDTH` / `HEIGHT` | 800 / 600 | px |
+| `STAGE_MARGIN` | 100 | px |
+| `KNOCKBACK_FRICTION` | 0.92 | multiplier per frame |
+| `TARGET_FPS` | 60 | Hz |
 
-### Format: Protocol Buffers
+Physics runs at a fixed timestep (`1/60s`) via `TimeManager`'s accumulator — regardless of actual frame rate.
 
-- **Why Chosen**: [Compact, typed, efficient serialization]
-- **Use Cases**: [gRPC communication, internal messages]
-- **Schema**:
-  ```protobuf
-  message User {
+## Rendering
 
-  }
-  ```
+**Compose Desktop Canvas** with coordinate scaling:
 
-### Format: MessagePack
+```kotlin
+val scale = minOf(canvasWidth / STAGE_WIDTH, canvasHeight / STAGE_HEIGHT)
+drawContext.transform.translate(offsetX, offsetY)
+drawContext.transform.scale(scale, scale, Offset.Zero)
+```
 
-- **Why Chosen**: [Binary format, smaller than JSON, fast]
-- **Use Cases**: [High-throughput messaging]
+The game world (800x600 logical units) is scaled uniformly to fill the window, centered with letterboxing if the aspect ratio doesn't match.
 
-## Database Technology
+Visual elements:
 
-### Primary Database: [PostgreSQL / MongoDB / DynamoDB / etc.]
+- **Players**: colored rectangles (Blue = P1, Red = P2) at their hurtbox dimensions
+- **Hitboxes**: yellow outline, visible only during ACTIVE attack phase
+- **Stage**: dark background, floor line, margin boundaries
+- **HUD**: health bars (proportional fill) + round timer (center)
 
-**Why Chosen**: [Reliability, ACID compliance, rich querying, open-source]
+## Build Pipeline
 
-**Version**: [14.x / 15.x]
-
-**Setup**:
 ```bash
-docker run -e POSTGRES_PASSWORD=secret \
-  -p 5432:5432 \
-  postgres:15
+./gradlew build      # compile + detekt + ktlint + tests
+./gradlew run        # launch the game
+./gradlew test       # tests only
+./gradlew ktlintFormat  # auto-fix formatting
 ```
 
-**Connection String**:
-```
-postgresql://user:password@localhost:5432/database
-```
-
-### Caching Layer: [Redis / Memcached]
-
-**Why Chosen**: [In-memory, fast key-value store, persistence options]
-
-**Configuration**:
-```
-maxmemory: 2gb
-maxmemory-policy: allkeys-lru
-```
-
-### Search Engine: [Elasticsearch / Meilisearch / etc.]
-
-**Why Chosen**: [Full-text search, faceted search]
-
-**Index Configuration**:
-```json
-{
-  "settings": {
-    "number_of_shards": 3,
-    "number_of_replicas": 2
-  },
-  "mappings": {
-    "properties": {
-      "title": {"type": "text"},
-      "description": {"type": "text"}
-    }
-  }
-}
-```
-
-## Authentication Implementation
-
-### JWT (JSON Web Tokens)
-
-**Token Structure**:
-```
-Header.Payload.Signature
-
-Example:
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
-eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.
-SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
-```
-
-**Token Payload**:
-```json
-{
-  "sub": "user123",
-  "iss": "https://api.example.com",
-  "aud": "https://example.com",
-  "iat": 1699729800,
-  "exp": 1699729860,
-  "scopes": ["read:users", "write:posts"]
-}
-```
-
-**Refresh Token Strategy**:
-- Access token: 15 minutes
-- Refresh token: 7 days
-- Use refresh token to get new access token
-
-### OAuth 2.0
-
-**Authorization Code Flow**:
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Client as Application
-    participant AuthSrv as Auth Server
-    
-    User->>Client: Click "Login"
-    Client->>AuthSrv: Redirect with client_id
-    AuthSrv->>User: Show consent screen
-    User->>AuthSrv: Grant permission
-    AuthSrv->>Client: Return authorization code
-    Client->>AuthSrv: Exchange code for token
-    AuthSrv->>Client: Return access token
-    Client->>Client: Create session
-```
-
-## Authorization Implementation
-
-### RBAC Implementation
-
-**Database Schema**:
-
-```sql
-CREATE TABLE roles (
-    role_id SERIAL PRIMARY KEY,
-    role_name VARCHAR(50) NOT NULL
-);
-
-CREATE TABLE permissions (
-    permission_id SERIAL PRIMARY KEY,
-    permission_name VARCHAR(100) NOT NULL
-);
-
-CREATE TABLE role_permissions (
-    role_id INT REFERENCES roles(role_id),
-    permission_id INT REFERENCES permissions(permission_id),
-    PRIMARY KEY (role_id, permission_id)
-);
-
-CREATE TABLE user_roles (
-    user_id UUID REFERENCES users(user_id),
-    role_id INT REFERENCES roles(role_id),
-    PRIMARY KEY (user_id, role_id)
-);
-```
-
-**Authorization Check**:
-
-```python
-def has_permission(user_id, required_permission):
-    # Get user roles
-    roles = db.query("""
-        SELECT r.role_name 
-        FROM user_roles ur
-        JOIN roles r ON ur.role_id = r.role_id
-        WHERE ur.user_id = %s
-    """, [user_id])
-    
-    # Check if any role has permission
-    for role in roles:
-        if check_role_permission(role, required_permission):
-            return True
-    return False
-```
-
-## Containerization
-
-### Docker
-
-**Dockerfile**:
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8000
-
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0"]
-```
-
-**Docker Compose**:
-
-```yaml
-version: '3.8'
-
-services:
-  app:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://user:pass@db:5432/app
-      REDIS_URL: redis://cache:6379
-    depends_on:
-      - db
-      - cache
-    
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: app
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    
-  cache:
-    image: redis:7
-    ports:
-      - "6379:6379"
-
-volumes:
-  postgres_data:
-```
-
-## Message Queue/Broker
-
-### Technology: [RabbitMQ / Kafka / AWS SQS]
-
-**Configuration**:
-
-```yaml
-# RabbitMQ example
-vhost: /
-user: guest
-password: guest
-
-queues:
-  - name: user.events
-    durable: true
-    arguments:
-      x-message-ttl: 86400000
-
-exchanges:
-  - name: events
-    type: topic
-    durable: true
-
-bindings:
-  - exchange: events
-    queue: user.events
-    routing_key: 'user.*'
-```
-
-**Producer Example**:
-
-```python
-import pika
-
-connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-channel = connection.channel()
-
-channel.exchange_declare(exchange='events', exchange_type='topic')
-
-message = '{"user_id": "123", "action": "created"}'
-channel.basic_publish(
-    exchange='events',
-    routing_key='user.created',
-    body=message
-)
-```
-
-## Monitoring and Observability
-
-### Logging
-
-**Technology**: [ELK Stack / Splunk / Grafana Loki / CloudWatch]
-
-**Log Levels**: [DEBUG / INFO / WARN / ERROR / CRITICAL]
-
-**Structured Logging**:
-
-```python
-import json
-import logging
-
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Structured log entry
-log_entry = {
-    "timestamp": "2025-11-11T21:09:00Z",
-    "service": "auth-service",
-    "level": "INFO",
-    "message": "User login successful",
-    "user_id": "123",
-    "ip_address": "192.168.1.1"
-}
-logger.info(json.dumps(log_entry))
-```
-
-### Metrics
-
-**Technology**: [Prometheus / StatsD / Datadog]
-
-**Key Metrics**:
-
-```
-# Request metrics
-http_requests_total{method="GET", path="/api/users"}
-http_request_duration_seconds{path="/api/users"}
-
-# Application metrics
-user_registrations_total
-active_sessions
-
-# System metrics
-system_cpu_percent
-system_memory_bytes
-```
-
-### Tracing
-
-**Technology**: [Jaeger / Zipkin / AWS X-Ray]
-
-**Example Trace**:
-
-```
-User Request
-├─ API Gateway (2ms)
-├─ Authentication Service (5ms)
-│  ├─ DB Query (3ms)
-│  └─ Cache Check (1ms)
-├─ User Service (8ms)
-│  ├─ DB Query (6ms)
-│  └─ Cache Write (1ms)
-└─ Response (1ms)
-
-Total: 16ms
-```
-
-## CI/CD Pipeline
-
-### Build Pipeline
-
-```yaml
-stages:
-  - build
-  - test
-  - deploy
-
-build:
-  image: python:3.11
-  stage: build
-  script:
-    - pip install -r requirements.txt
-    - python setup.py build
-
-test:
-  image: python:3.11
-  stage: test
-  script:
-    - pip install -r requirements.txt
-    - pytest --cov
-
-deploy:
-  image: docker:latest
-  stage: deploy
-  script:
-    - docker build -t myapp:latest .
-    - docker push myapp:latest
-  only:
-    - main
-```
-
-## Framework and Libraries
-
-### Backend Framework: [FastAPI / Django / Spring / Node.js]
-
-### Frontend Framework: [React / Vue / Angular / Svelte]
-
-### Testing Framework: [pytest / Jest / JUnit]
-
-### API Documentation: [Swagger/OpenAPI / GraphQL / AsyncAPI]
+Compiler setting: `allWarningsAsErrors = true`. CI runs on GitHub Actions with semantic-release for automated versioning.
