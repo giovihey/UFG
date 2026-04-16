@@ -8,4 +8,6 @@ data class Attack(
     val startupFrames: Int,
     val activeFrames: Int,
     val recoveryFrames: Int,
+    val hitstunFrames: Int,
+    val knockbackSpeed: Double,
 )

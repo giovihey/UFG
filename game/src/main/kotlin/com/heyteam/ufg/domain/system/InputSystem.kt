@@ -4,6 +4,7 @@ import com.heyteam.ufg.domain.component.AttackState
 import com.heyteam.ufg.domain.component.Attacks
 import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.component.PlayerState
 import com.heyteam.ufg.domain.config.GameConstants
 import com.heyteam.ufg.domain.entity.World
 
@@ -14,6 +15,21 @@ object InputSystem {
     ): World {
         var nextWorld = world
         for ((id, player) in world.players) {
+            if (player.physicsState.hitstunFramesRemaining > 0) {
+                val remaining = player.physicsState.hitstunFramesRemaining - 1
+                val newState = if (remaining <= 0) PlayerState.IDLE else PlayerState.HITSTUN
+                val updatedPlayer =
+                    player.copy(
+                        physicsState =
+                            player.physicsState.copy(
+                                hitstunFramesRemaining = remaining,
+                                state = newState,
+                            ),
+                    )
+                nextWorld = nextWorld.copyWithUpdatedPlayer(id, updatedPlayer)
+                continue
+            }
+
             val input = inputs[id] ?: InputState.NONE
 
             // Horizontal movement

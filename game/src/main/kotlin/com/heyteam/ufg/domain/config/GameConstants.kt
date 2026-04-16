@@ -31,6 +31,9 @@ object GameConstants {
     // Game Loop
     const val ROUND_END_DELAY_MS = 2000L // 2 seconds
 
+    const val FRAMES_PER_SECOND = 60L
+    const val KNOCKBACK_FRICTION = 0.92
+
     const val SCALE = 0.001
     const val ACCEL_RIGHT = 3.0
     const val FRICTION = 0.88

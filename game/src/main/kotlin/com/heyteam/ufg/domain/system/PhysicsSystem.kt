@@ -36,7 +36,12 @@ object PhysicsSystem {
             )
 
         // Apply horizontal movement
-        val newSpeedX = player.nextMove.direction.x * GameConstants.WALK_SPEED
+        val newSpeedX =
+            if (player.physicsState.state == PlayerState.HITSTUN) {
+                player.nextMove.speedX * GameConstants.KNOCKBACK_FRICTION
+            } else {
+                player.nextMove.direction.x * GameConstants.WALK_SPEED
+            }
         val newX =
             (player.position.x + newSpeedX * dt).coerceIn(
                 GameConstants.STAGE_MARGIN + player.hurtBox.width / 2,
@@ -93,6 +98,7 @@ object PhysicsSystem {
         isGrounded: Boolean,
     ): PlayerState =
         when {
+            player.physicsState.state == PlayerState.HITSTUN -> PlayerState.HITSTUN
             !isGrounded -> PlayerState.JUMPING
             player.nextMove.direction.x != 0.0 -> PlayerState.WALKING
             else -> PlayerState.IDLE

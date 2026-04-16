@@ -28,6 +28,8 @@ class AttackSystemSpec :
                 startupFrames = 4,
                 activeFrames = 3,
                 recoveryFrames = 8,
+                hitstunFrames = 12,
+                knockbackSpeed = 150.0,
             )
 
         fun createPlayer(attackState: AttackState? = null): Player =

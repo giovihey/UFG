@@ -2,6 +2,7 @@ package com.heyteam.ufg.domain.system
 
 import com.heyteam.ufg.domain.component.AttackState
 import com.heyteam.ufg.domain.component.GameStatus
+import com.heyteam.ufg.domain.component.PlayerState
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 
@@ -38,11 +39,22 @@ object HitDetectionSystem {
         opponent: Player,
         state: AttackState,
     ): World {
+        val knockbackDir = if (attacker.position.x < opponent.position.x) 1.0 else -1.0
+
         val damagedOpponent =
             opponent.copy(
                 health =
                     opponent.health.copy(
                         current = (opponent.health.current - state.attack.damage).coerceAtLeast(0),
+                    ),
+                physicsState =
+                    opponent.physicsState.copy(
+                        state = PlayerState.HITSTUN,
+                        hitstunFramesRemaining = state.attack.hitstunFrames,
+                    ),
+                nextMove =
+                    opponent.nextMove.copy(
+                        speedX = state.attack.knockbackSpeed * knockbackDir,
                     ),
             )
         val updatedAttacker =
