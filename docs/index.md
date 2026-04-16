@@ -1,25 +1,25 @@
-# UFG Report
+# UFG // Ultra Fighting Game
 
-## Abstract
-
-Describing the project.
+A **peer-to-peer 2D fighting game** built with Kotlin, Compose Desktop, and WebRTC. Two players connect directly over the internet and fight in real-time with frame-precise input sharing.
 
 ## Report Structure
 
-This report is organized into the following sections:
-
-1. **Concept** - Overview of the project type, use cases, and distribution rationale
-2. **Requirements Elicitation and Analysis** - Functional, non-functional, and implementation requirements
-3. **Design** - Architectural and system design decisions
-4. **Implementation** - Technology-specific implementation details
-5. **Validation** - Testing strategies and results
-6. **Deployment** - Installation and deployment instructions
-7. **User Guide** - How to use the system
-8. **Self-evaluation** - Team member evaluations
-9. **Future Works** - Planned improvements and extensions
+| Section | What it covers |
+|---------|---------------|
+| **Concept** | What UFG is, who it's for, and why it's distributed |
+| **Requirements** | Functional, non-functional, and distributed-system requirements |
+| **Design** | Domain modelling, state management, interaction patterns |
+| **Architecture** | Hexagonal Architecture — layers, ports, adapters, data flow |
+| **Networking** | WebRTC P2P layer — signaling, ICE, data channels |
+| **Implementation** | Tech stack, protocols, frame data, and build toolchain |
+| **Validation** | Testing strategy and coverage |
+| **Deployment** | How to build and run |
+| **User Guide** | Controls and gameplay |
+| **Future Works** | Rollback netcode, blocking, character select |
 
 ---
 
 **Authors**:
-- Author 1 (mounir.samite@studio.unibo.it)
-- Author 2 (giovanni.paradisi2@studio.unibo.it)
+
+- Mounir Samite (mounir.samite@studio.unibo.it)
+- Giovanni Paradisi (giovanni.paradisi2@studio.unibo.it)

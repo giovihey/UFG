@@ -1,127 +1,84 @@
 # Deployment
 
-This section provides instructions for installing and deploying the system.
-
 ## Prerequisites
 
-### System Requirements
+| Requirement | Version |
+|------------|---------|
+| **JDK** | 17+ |
+| **Gradle** | Bundled via `gradlew` wrapper |
+| **Native library** | `libwebrtc_wrapper` compiled for your OS (macOS `.dylib`, Linux `.so`, Windows `.dll`) |
 
-### External Services
-
-- [Service 1]: [URL/Credentials needed]
-- [Service 2]: [URL/Credentials needed]
-- [Service 3]: [URL/Credentials needed]
-
-## Installation from Source
-
-### 1. Clone Repository
+## Build from Source
 
 ```bash
-git clone https://github.com/yourusername/yourproject.git
-cd yourproject
+git clone https://github.com/giovihey/UFG.git
+cd UFG/game
+./gradlew build
 ```
 
-### 2. Install Dependencies
+This compiles Kotlin, runs detekt + ktlint + all tests.
 
-**Python**:
+## Run
+
+### Local Development (Single Player)
 
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+cd game
+./gradlew run
 ```
 
-**Node.js**:
+The game window opens at 800x600. Player 1 is controllable. Without a network peer, Player 2 won't receive input (the game loop will stall waiting for remote input unless running in local-only mode).
+
+### Multiplayer (Two Machines)
+
+**Step 1** — Start the signaling server (Go WebSocket relay):
 
 ```bash
-npm install
+# On a machine reachable by both players
+cd signaling-server
+go run .
 ```
 
-**Other**:
+Default address: `ws://<server-ip>:8080/ws`
+
+**Step 2** — Player A (host):
 
 ```bash
-[Installation instructions for other dependencies]
+cd game
+./gradlew run --args="--host"
 ```
 
-### 3. Configure Environment
-
-Create `.env` file:
-
-### 4. Setup Database
-
-### 5. Run Application
-
-**Development**:
+**Step 3** — Player B (joiner):
 
 ```bash
-# Python
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Node.js
-npm run dev
-
-# Other
-[Your application startup command]
+cd game
+./gradlew run
 ```
 
-**Production**:
+Both clients connect to the signaling server, exchange SDP/ICE, establish P2P, and the match begins.
+
+## Native Library
+
+The WebRTC bridge requires a compiled native library (`libwebrtc_wrapper`). It must be on the JVM's library path:
 
 ```bash
-# Python with Gunicorn
-gunicorn -w 4 -b 0.0.0.0:8000 main:app
+# macOS
+export DYLD_LIBRARY_PATH=/path/to/native/lib:$DYLD_LIBRARY_PATH
 
-# Node.js with PM2
-pm2 start index.js -i 4
+# Linux
+export LD_LIBRARY_PATH=/path/to/native/lib:$LD_LIBRARY_PATH
+
+# Windows
+# Add the DLL directory to PATH
 ```
 
-### 6. Verify Installation
+## Useful Commands
 
 ```bash
-# Check API is running
-curl http://localhost:8000/health
-
-# Expected response:
-# {"status": "healthy", "version": "1.0.0"}
-
-# Check database connection
-curl http://localhost:8000/api/health/db
-
-# Expected response:
-# {"database": "connected"}
-```
-
-## Docker Deployment
-
-### Build Docker Image
-
-```bash
-docker build -t myapp:1.0.0 .
-```
-
-### Run with Docker
-
-```bash
-docker run -d \
-  --name myapp \
-  -p 8000:8000 \
-  -e DATABASE_URL=postgresql://user:pass@db:5432/myapp \
-  -e REDIS_URL=redis://cache:6379 \
-  -v /data:/app/data \
-  myapp:1.0.0
-```
-
-### Docker Compose
-
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f app
-
-# Stop services
-docker-compose down
-
-# Rebuild images
-docker-compose build --no-cache
+./gradlew test                          # Run tests only
+./gradlew test --tests "*.RectangleSpec"  # Single test class
+./gradlew ktlintFormat                  # Auto-fix formatting
+./gradlew detekt                        # Static analysis
+./gradlew dokkaGenerateHtml             # API docs
+./gradlew jacocoTestReport              # Coverage report → build/reports/jacoco/
 ```

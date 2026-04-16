@@ -1,170 +1,97 @@
-# Requirements Elicitation and Analysis
-
-This section defines what the software should do, without focusing on implementation details.
-
-## Principles
-
-- Requirements explain **what** (not how) the software should do
-- Requirements focus on application functionality, not on particular technical problems
-- Requirements must be clearly identified and numbered
-- Each requirement must have an **acceptance criterion** for validation
+# Requirements
 
 ## Glossary
 
-Define domain-specific terms used throughout the document:
-
-| Term     | Definition   |
-|----------|--------------|
-| [Term 1] | [Definition] |
-| [Term 2] | [Definition] |
+| Term | Definition |
+|------|-----------|
+| **Frame** | One tick of the game loop — 1/60th of a second (~16.67 ms) |
+| **Input State** | Bitmask encoding which buttons are pressed in a given frame |
+| **Hitbox** | Rectangle attached to an attack — overlapping an opponent's hurtbox registers a hit |
+| **Hurtbox** | Rectangle representing a player's vulnerable area |
+| **Frame data** | Startup, active, and recovery frame counts that define an attack's timing |
+| **Hitstun** | Frames during which a hit player cannot act |
+| **Knockback** | Horizontal push applied to a player when hit |
+| **AABB** | Axis-Aligned Bounding Box — collision detection using non-rotated rectangles |
+| **Lockstep** | Networking model where both peers must exchange input before advancing a frame |
+| **SDP** | Session Description Protocol — text blob exchanged during WebRTC handshake |
+| **ICE** | Interactive Connectivity Establishment — protocol for NAT traversal |
 
 ## Functional Requirements
 
-Functional requirements specify the functionality the software should provide to users.
+### FR1: Real-Time Combat
+Both players can move, jump, and attack. Inputs are processed every frame at 60 FPS. Attacks have frame data (startup/active/recovery) and hitboxes.
 
-### FR1: [Requirement Title]
+- Acceptance: pressing PUNCH triggers a JAB with 4 startup, 3 active, 8 recovery frames.
 
-**Description**: [Detailed description of the requirement]
+### FR2: Hit Detection and Damage
+When an active hitbox overlaps an opponent's hurtbox, the opponent takes damage. Each attack can only hit once per activation.
 
-**Acceptance Criteria**:
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+- Acceptance: a JAB landing reduces opponent HP by the attack's damage value.
 
----
+### FR3: Hitstun and Knockback
+A hit puts the opponent in HITSTUN (unable to act) and pushes them away from the attacker.
 
-### FR2: [Requirement Title]
+- Acceptance: after being hit, the opponent cannot move or attack for the attack's `hitstunFrames` and slides in the knockback direction.
 
-[Continue with additional functional requirements...]
+### FR4: Round Timer
+A countdown timer starts at 99 seconds. When it reaches 0, the round ends. The player with more HP wins.
+
+- Acceptance: timer decrements by 1 each second and triggers ROUND_END at 0.
+
+### FR5: P2P Input Sharing
+Both players' inputs are exchanged every frame over a WebRTC data channel. The game advances only when both inputs are available (lockstep).
+
+- Acceptance: two players on different machines see identical game states frame-by-frame.
+
+### FR6: NAT Traversal
+Players behind home routers can connect without manual port forwarding, using STUN for NAT hole-punching.
+
+- Acceptance: two players behind different NATs connect and play via the signaling server.
+
+### FR7: Visual Feedback
+The game renders players, hitboxes (during active frames), health bars, and the round timer. The viewport scales to fit the window.
+
+- Acceptance: resizing the window scales the game area proportionally.
 
 ## Non-Functional Requirements
 
-Non-functional requirements do not directly concern behavioral aspects but rather system properties like consistency, availability, performance, security, etc.
+### NFR1: Determinism
+Given identical inputs, the simulation must produce identical `World` states on both machines. Required for lockstep networking and future rollback netcode.
 
-### NFR1: [Requirement Title]
+- Acceptance: all domain logic is pure (no randomness, no system clock, no mutable shared state).
 
-**Description**: [Detailed description]
+### NFR2: 60 FPS Target
+The game loop maintains a fixed timestep of 1/60s. Physics and input processing are decoupled from render rate.
 
-**Acceptance Criteria**:
-- [ ] Criterion 1
-- [ ] Criterion 2
+- Acceptance: `TimeManager` accumulates time and steps at a fixed 60 Hz regardless of actual frame rate.
 
----
+### NFR3: Low Latency Networking
+Input packets use UDP-like delivery (unordered, no retransmission) over WebRTC data channels to minimize latency.
 
-### NFR2: [Requirement Title]
+- Acceptance: data channel configured with unordered delivery and no retransmission.
 
-[Continue with additional non-functional requirements...]
+### NFR4: Testability
+All game logic can be tested without a GUI, network, or OS-level dependencies.
+
+- Acceptance: domain systems are pure functions tested via Kotest specs.
+
+## Distributed System Features
+
+| Feature | Relevant | Rationale |
+|---------|----------|-----------|
+| **Transparency** | Partial | The P2P connection is hidden from gameplay, but connection setup (host/join) is visible to the user |
+| **Fault tolerance** | Limited | If a peer disconnects, the game stalls (lockstep). Graceful shutdown is implemented but no reconnection |
+| **Scalability** | No | 1v1 only. No matchmaking server, no spectators. P2P doesn't scale beyond 2 peers for this use case |
+| **Security** | Partial | WebRTC encrypts the data channel (DTLS). No authentication — anyone with the signaling server URL can connect |
+| **Performance** | Critical | Sub-frame latency required. P2P eliminates server hops. Fixed timestep ensures consistent simulation speed |
+| **Consistency** | Critical | Both peers must agree on game state every frame. Achieved through deterministic lockstep simulation |
 
 ## Implementation Constraints
 
-Implementation constraints restrict the system realization phase, such as:
-- Required programming languages
-- Specific software tools
-- Development frameworks
-- Technology stack
-
-These should be adequately justified by political, economic, or administrative reasons. Otherwise, implementation choices should emerge as consequences of design decisions.
-
-### Constraint 1: [Title]
-
-**Justification**: [Why is this constraint necessary?]
-
-**Details**: [Specific details about the constraint]
-
----
-
-### Constraint 2: [Title]
-
-[Continue with additional constraints...]
-
-## Relevant Distributed System Features
-
-This subsection motivates which distributed system features are relevant for your project and which are not.
-
-### Transparency
-
-**Relevant?** [ ] Yes [ ] No
-
-Does your system need to hide distribution details from users or developers? Is it important that failures, location, or replication are invisible?
-
-[Your analysis here]
-
----
-
-### Fault Tolerance & Dependability
-
-**Relevant?** [ ] Yes [ ] No
-
-What happens if a component fails? Is uninterrupted service required? Is data loss or corruption unacceptable? How quickly must the system recover from faults?
-
-[Your analysis here]
-
----
-
-### Scalability
-
-**Relevant?** [ ] Yes [ ] No
-
-Will the system need to handle increasing numbers of users, requests, or data? Is it expected to grow over time?
-
-[Your analysis here]
-
----
-
-### Security & Trust
-
-**Relevant?** [ ] Yes [ ] No
-
-Is sensitive data being processed or stored? Are there multiple user roles with different permissions? Is authentication or authorization required?
-
-[Your analysis here]
-
----
-
-### Resource Sharing
-
-**Relevant?** [ ] Yes [ ] No
-
-Do multiple users or components need access to shared resources? Is coordination or synchronization needed?
-
-[Your analysis here]
-
----
-
-### Openness & Interoperability
-
-**Relevant?** [ ] Yes [ ] No
-
-Will your system interact with external systems or use components built with different technologies? Is standardization or compatibility important?
-
-[Your analysis here]
-
----
-
-### Evolvability & Maintainability
-
-**Relevant?** [ ] Yes [ ] No
-
-Will the system need to be updated or extended after deployment? Is long-term maintenance a concern?
-
-[Your analysis here]
-
----
-
-### Performance & Concurrency
-
-**Relevant?** [ ] Yes [ ] No
-
-Are there strict requirements on response time or throughput? Will many operations happen in parallel? Is network usage a concern?
-
-[Your analysis here]
-
----
-
-### Economy & Costs
-
-**Relevant?** [ ] Yes [ ] No
-
-Are there budget constraints for development, deployment, or operation? Is minimizing resource usage important?
-
-[Your analysis here]
+| Constraint | Justification |
+|-----------|---------------|
+| **Kotlin/JVM** | University course requirement. JVM enables cross-platform desktop deployment |
+| **Compose Desktop** | Modern declarative UI framework for Kotlin, avoids Swing boilerplate |
+| **libdatachannel (C++)** | Lightweight WebRTC library (~2 MB vs ~80 MB for full libwebrtc). Only data channels needed, not audio/video |
+| **JNI bridge** | Required to call C++ WebRTC library from Kotlin/JVM |
+| **Hexagonal Architecture** | Enforces determinism and testability by isolating domain from infrastructure |
