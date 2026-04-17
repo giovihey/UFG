@@ -22,14 +22,14 @@ import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.component.Screen
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
-import com.heyteam.ufg.infrastructure.adapter.gui.screen.mainScreen
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.titleScreen
 
 class ComposeAdapter :
     RenderPort,
     KeyboardInputPort,
     ScreenPort {
     @Volatile private var currentBitMask: Int = 0
-    private var currentScreen by mutableStateOf<Screen>(Screen.Main)
+    private var currentScreen by mutableStateOf<Screen>(Screen.Title)
     var onShutdown: (() -> Unit)? = null
 
     // mutableStateOf is thread-safe for reads/writes
@@ -85,8 +85,8 @@ class ComposeAdapter :
                 },
             ) {
                 when (currentScreen) {
-                    is Screen.Main -> {
-                        mainScreen(onPlay = { navigate(Screen.Game) })
+                    is Screen.Title -> {
+                        titleScreen(onPlay = { navigate(Screen.Game) })
                     }
 
                     is Screen.Game -> {
@@ -115,6 +115,6 @@ class ComposeAdapter :
     }
 
     override fun back() {
-        currentScreen = Screen.Main
+        currentScreen = Screen.Title
     }
 }

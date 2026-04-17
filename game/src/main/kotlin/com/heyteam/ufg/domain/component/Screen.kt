@@ -1,9 +1,9 @@
 package com.heyteam.ufg.domain.component
 
 sealed class Screen {
-    object Main : Screen()
+    object Title : Screen()
 
-    object Login : Screen()
+    object Auth : Screen()
 
     object Menu : Screen()
 
