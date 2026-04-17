@@ -6,4 +6,6 @@ sealed class Screen {
     object Login : Screen()
 
     object Menu : Screen()
+
+    object Game : Screen()
 }

@@ -16,16 +16,20 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.heyteam.ufg.application.port.input.KeyboardInputPort
 import com.heyteam.ufg.application.port.output.RenderPort
+import com.heyteam.ufg.application.port.output.ScreenPort
 import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
+import com.heyteam.ufg.domain.component.Screen
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.mainScreen
 
 class ComposeAdapter :
     RenderPort,
-    KeyboardInputPort {
+    KeyboardInputPort,
+    ScreenPort {
     @Volatile private var currentBitMask: Int = 0
-
+    private var currentScreen by mutableStateOf<Screen>(Screen.Main)
     var onShutdown: (() -> Unit)? = null
 
     // mutableStateOf is thread-safe for reads/writes
@@ -80,9 +84,17 @@ class ComposeAdapter :
                     }
                 },
             ) {
-                val world = worldState
-                if (world != null) {
-                    gameScreen(world)
+                when (currentScreen) {
+                    is Screen.Main -> {
+                        mainScreen(onPlay = { navigate(Screen.Game) })
+                    }
+
+                    is Screen.Game -> {
+                        val world = worldState
+                        if (world != null) gameScreen(world)
+                    }
+
+                    else -> {}
                 }
             }
         }
@@ -97,4 +109,12 @@ class ComposeAdapter :
     }
 
     override fun pollInputState(player: Int): InputState = InputState(currentBitMask)
+
+    override fun navigate(screen: Screen) {
+        currentScreen = screen
+    }
+
+    override fun back() {
+        currentScreen = Screen.Main
+    }
 }
