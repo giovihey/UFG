@@ -6,7 +6,7 @@ import com.heyteam.ufg.domain.component.Screen
 class ScreenManager(
     private val screenPort: ScreenPort,
 ) {
-    private var current: Screen = Screen.Main
+    private var current: Screen = Screen.Title
 
     fun onPlayPressed() {
         /*val jwt = tokenStore.get()

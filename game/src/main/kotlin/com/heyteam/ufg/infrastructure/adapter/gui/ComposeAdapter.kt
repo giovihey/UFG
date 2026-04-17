@@ -22,6 +22,7 @@ import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.component.Screen
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.menuScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.titleScreen
 
 class ComposeAdapter :
@@ -86,7 +87,15 @@ class ComposeAdapter :
             ) {
                 when (currentScreen) {
                     is Screen.Title -> {
-                        titleScreen(onPlay = { navigate(Screen.Game) })
+                        titleScreen(onPlay = { navigate(Screen.Menu) })
+                    }
+
+                    is Screen.Menu -> {
+                        menuScreen(
+                            onPlay = { navigate(Screen.Game) },
+                            onOptions = { /* future */ },
+                            onHelp = { /* future */ },
+                        )
                     }
 
                     is Screen.Game -> {
