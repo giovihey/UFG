@@ -6,4 +6,6 @@ interface ScreenPort {
     fun navigate(screen: Screen)
 
     fun back()
+
+    fun showError(message: String)
 }

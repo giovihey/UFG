@@ -21,6 +21,7 @@ import com.heyteam.ufg.domain.component.GameButton
 import com.heyteam.ufg.domain.component.InputState
 import com.heyteam.ufg.domain.component.Screen
 import com.heyteam.ufg.domain.entity.World
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.authScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.menuScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.titleScreen
@@ -31,6 +32,11 @@ class ComposeAdapter :
     ScreenPort {
     @Volatile private var currentBitMask: Int = 0
     private var currentScreen by mutableStateOf<Screen>(Screen.Title)
+    private var errorMessage by mutableStateOf<String?>(null)
+    var onPlayPressed: () -> Unit = {}
+    var onLogin: (username: String, password: String) -> Unit = { _, _ -> }
+    var onRegister: (username: String, password: String) -> Unit = { _, _ -> }
+    var onGameStart: (isHost: Boolean) -> Unit = {}
     var onShutdown: (() -> Unit)? = null
 
     // mutableStateOf is thread-safe for reads/writes
@@ -86,24 +92,36 @@ class ComposeAdapter :
                 },
             ) {
                 when (currentScreen) {
+                    // Play pressed → Main.kt decides: Auth or Menu
                     is Screen.Title -> {
-                        titleScreen(onPlay = { navigate(Screen.Menu) })
+                        titleScreen(
+                            onPlay = { onPlayPressed() },
+                        )
                     }
 
+                    is Screen.Auth -> {
+                        authScreen(
+                            errorMessage = errorMessage,
+                            onLogin = { u, p -> onLogin(u, p) },
+                            onRegister = { u, p -> onRegister(u, p) },
+                        )
+                    }
+
+                    // Menu: Play triggers game start — Main.kt decides host/guest
+                    // This will later be replaced by the lobby flow
                     is Screen.Menu -> {
                         menuScreen(
-                            onPlay = { navigate(Screen.Game) },
+                            onPlay = { onGameStart(true) }, // temporary — lobby replaces this
                             onOptions = { /* future */ },
                             onHelp = { /* future */ },
                         )
                     }
 
+                    // Game screen: driven by world state from the game loop
                     is Screen.Game -> {
                         val world = worldState
                         if (world != null) gameScreen(world)
                     }
-
-                    else -> {}
                 }
             }
         }
@@ -125,5 +143,10 @@ class ComposeAdapter :
 
     override fun back() {
         currentScreen = Screen.Title
+    }
+
+    override fun showError(message: String) {
+        errorMessage = message
+        navigate(Screen.Auth)
     }
 }

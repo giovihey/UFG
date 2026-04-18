@@ -16,8 +16,4 @@ COPY --from=build /app/auth-service .
 
 EXPOSE 8080
 
-# Required env vars (set in docker-compose.yml):
-#   DB_URL       postgres://user:pass@postgres:5432/ufg
-#   JWT_SECRET   long-random-string
-
 ENTRYPOINT ["./auth-service"]
