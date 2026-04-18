@@ -1,0 +1,43 @@
+{
+  "id": 2,
+  "name": "Kaze",
+  "maxHealth": 80,
+  "walkSpeed": 180.0,
+  "jumpSpeed": -420.0,
+  "weight": 0.8,
+  "defaultHurtbox": { "offsetX": 0.0, "offsetY": 0.0, "width": 45.0, "height": 75.0 },
+  "moveList": {
+    "NEUTRAL_PUNCH": {
+      "name": "Quick Jab",
+      "damage": 5,
+      "buttonInput": "PUNCH",
+      "hitBox": { "offsetX": 20.0, "offsetY": 5.0, "width": 32.0, "height": 24.0 },
+      "startupFrames": 2, "activeFrames": 2, "recoveryFrames": 6,
+      "hitstunFrames": 10, "knockbackSpeed": 120.0
+    },
+    "NEUTRAL_KICK": {
+      "name": "Flash Kick",
+      "damage": 8,
+      "buttonInput": "KICK",
+      "hitBox": { "offsetX": 22.0, "offsetY": 15.0, "width": 42.0, "height": 28.0 },
+      "startupFrames": 5, "activeFrames": 3, "recoveryFrames": 10,
+      "hitstunFrames": 13, "knockbackSpeed": 170.0
+    },
+    "DOWN_PUNCH": {
+      "name": "Low Poke",
+      "damage": 4,
+      "buttonInput": "PUNCH",
+      "hitBox": { "offsetX": 18.0, "offsetY": 42.0, "width": 30.0, "height": 14.0 },
+      "startupFrames": 2, "activeFrames": 2, "recoveryFrames": 5,
+      "hitstunFrames": 8, "knockbackSpeed": 80.0
+    },
+    "DOWN_KICK": {
+      "name": "Slide Sweep",
+      "damage": 7,
+      "buttonInput": "KICK",
+      "hitBox": { "offsetX": 20.0, "offsetY": 55.0, "width": 48.0, "height": 12.0 },
+      "startupFrames": 6, "activeFrames": 3, "recoveryFrames": 12,
+      "hitstunFrames": 14, "knockbackSpeed": 140.0
+    }
+  }
+}

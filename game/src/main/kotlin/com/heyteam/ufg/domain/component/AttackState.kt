@@ -16,10 +16,20 @@ data class AttackState(
     val isExpired: Boolean
         get() = currentFrame >= totalFrames
 
-    fun activeHitBox(topLeft: Position): Rectangle? {
+    fun activeHitBox(
+        topLeft: Position,
+        hurtboxWidth: Double,
+        facing: Facing,
+    ): Rectangle? {
         if (phase != AttackPhase.ACTIVE) return null
+        val offsetX =
+            if (facing == Facing.RIGHT) {
+                attack.hitBox.x
+            } else {
+                hurtboxWidth - attack.hitBox.x - attack.hitBox.width
+            }
         return attack.hitBox.copy(
-            x = topLeft.x + attack.hitBox.x,
+            x = topLeft.x + offsetX,
             y = topLeft.y + attack.hitBox.y,
         )
     }

@@ -40,7 +40,7 @@ object PhysicsSystem {
             if (player.physicsState.state == PlayerState.HITSTUN) {
                 player.nextMove.speedX * GameConstants.KNOCKBACK_FRICTION
             } else {
-                player.nextMove.direction.x * GameConstants.WALK_SPEED
+                player.nextMove.direction.x * player.character.walkSpeed
             }
         val newX =
             (player.position.x + newSpeedX * dt).coerceIn(
@@ -99,6 +99,7 @@ object PhysicsSystem {
     ): PlayerState =
         when {
             player.physicsState.state == PlayerState.HITSTUN -> PlayerState.HITSTUN
+            player.physicsState.state == PlayerState.ATTACKING -> PlayerState.ATTACKING
             !isGrounded -> PlayerState.JUMPING
             player.nextMove.direction.x != 0.0 -> PlayerState.WALKING
             else -> PlayerState.IDLE

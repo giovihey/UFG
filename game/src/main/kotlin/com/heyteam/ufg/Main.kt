@@ -1,5 +1,6 @@
 package com.heyteam.ufg
 
+import com.heyteam.ufg.application.port.output.CharacterRepository
 import com.heyteam.ufg.application.service.CheckSessionUseCase
 import com.heyteam.ufg.application.service.GameEngine
 import com.heyteam.ufg.application.service.GameLoop
@@ -8,9 +9,11 @@ import com.heyteam.ufg.application.service.RegisterUseCase
 import com.heyteam.ufg.application.service.SessionStore
 import com.heyteam.ufg.application.service.TimeManager
 import com.heyteam.ufg.domain.component.Direction
-import com.heyteam.ufg.domain.component.Health
+import com.heyteam.ufg.domain.component.Facing
 import com.heyteam.ufg.domain.component.Movement
+import com.heyteam.ufg.domain.component.PlayerPhysicsState
 import com.heyteam.ufg.domain.component.Position
+import com.heyteam.ufg.domain.entity.Character
 import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.component.Screen
 import com.heyteam.ufg.domain.entity.Player
@@ -24,12 +27,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.heyteam.ufg.infrastructure.adapter.output.JsonCharacterRepository
+import kotlin.system.exitProcess
 
 const val P1_START_X = 150.0
 const val P2_START_X = 600.0
-const val PLAYER_HURTBOX_W = 50.0
-const val PLAYER_HURTBOX_H = 80.0
-const val PLAYER_MAX_HEALTH = 100
 const val POLL_INTERVAL_MS = 100L
 const val SIGNALING_CONNECT_TIMEOUT_MS = 250L
 const val SIGNALING_CONNECT_MAX_ATTEMPTS = 20
@@ -41,6 +43,8 @@ const val TARGET_FPS = 60
 const val AUTH_BASE_URL = "http://localhost:8081"
 const val SIGNALING_URL = "ws://localhost:8080/ws"
 const val STUN_SERVER = "stun:stun.l.google.com:19302"
+const val P1_CHARACTER_ID = 2 // rushdown
+const val P2_CHARACTER_ID = 3 // heavy
 
 fun main(args: Array<String>) {
     // Read --host flag once here — used later in onGameStart.
@@ -125,6 +129,11 @@ private suspend fun onGameStart(
 
     if (isHost) bridge.createOffer()
 
+    val composeAdapter = ComposeAdapter()
+    val timeManager = TimeManager(targetFPS = 60)
+    val characters: CharacterRepository = JsonCharacterRepository()
+    val engine = GameEngine(createWorld(characters))
+
     // Wait for the P2P data channel to open
     println("Waiting for peer to connect...")
     while (!networkAdapter.isConnected()) {
@@ -153,36 +162,34 @@ private suspend fun onGameStart(
     composeAdapter.navigate(Screen.Game)
 }
 
-fun createWorld(): World {
-    val p1 =
-        Player(
-            id = 1,
-            name = "P1",
-            position = Position(P1_START_X, 0.0),
-            nextMove =
-                Movement(
-                    direction = Direction(0.0, 0.0),
-                    position = Position(P1_START_X, 0.0),
-                    speedX = 0.0,
-                    speedY = 0.0,
-                ),
-            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
-            hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
-        )
-    val p2 =
-        Player(
-            id = 2,
-            name = "P2",
-            position = Position(P2_START_X, 0.0),
-            nextMove =
-                Movement(
-                    direction = Direction(0.0, 0.0),
-                    position = Position(P2_START_X, 0.0),
-                    speedX = 0.0,
-                    speedY = 0.0,
-                ),
-            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
-            hurtBox = Rectangle(P2_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
-        )
+fun createWorld(characters: CharacterRepository): World {
+    val p1Character = requireNotNull(characters.findById(P1_CHARACTER_ID))
+    val p2Character = requireNotNull(characters.findById(P2_CHARACTER_ID))
+    val p1 = spawnPlayer(id = 1, name = "P1", startX = P1_START_X, character = p1Character, facing = Facing.RIGHT)
+    val p2 = spawnPlayer(id = 2, name = "P2", startX = P2_START_X, character = p2Character, facing = Facing.LEFT)
     return World(frameNumber = 0L, players = mapOf(1 to p1, 2 to p2))
 }
+
+private fun spawnPlayer(
+    id: Int,
+    name: String,
+    startX: Double,
+    character: Character,
+    facing: Facing,
+): Player =
+    Player(
+        id = id,
+        name = name,
+        position = Position(startX, 0.0),
+        nextMove =
+            Movement(
+                direction = Direction(0.0, 0.0),
+                position = Position(startX, 0.0),
+                speedX = 0.0,
+                speedY = 0.0,
+            ),
+        health = character.maxHealth,
+        hurtBox = character.defaultHurtbox,
+        character = character,
+        physicsState = PlayerPhysicsState(facing = facing),
+    )
