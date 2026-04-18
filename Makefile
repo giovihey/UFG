@@ -37,6 +37,14 @@ else
 	cd channel && cmake -B build && cmake --build build
 endif
 
+test:
+ifeq ($(DETECTED_OS), Windows)
+	set "PATH=$(WIN_RUNTIME_PATH);%PATH%" && cd game && .\gradlew build && .\gradlew test
+else
+	cd game && ./gradlew build && ./gradlew test
+endif
+
+
 down:
 	docker compose down
 
