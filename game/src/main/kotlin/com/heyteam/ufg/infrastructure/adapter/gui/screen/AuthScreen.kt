@@ -22,6 +22,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private val AUTH_BACKGROUND_COLOR = Color.Cyan
+private val AUTH_TEXT_COLOR = Color.White
+private val AUTH_ERROR_COLOR = Color.Red
+private const val AUTH_FORM_WIDTH = 0.4f
+private const val AUTH_TITLE_SIZE = 32
+private const val AUTH_FORM_SPACING = 24
+private const val AUTH_INPUT_SPACING = 12
+private const val AUTH_ERROR_SIZE = 12
+
 /**
  * AuthScreen — login/register UI for the game.
  *
@@ -43,83 +52,105 @@ fun authScreen(
         modifier =
             Modifier
                 .fillMaxSize()
-                .background(Color(0xFF5c6bc0.toInt())),
+                .background(AUTH_BACKGROUND_COLOR),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             modifier =
                 Modifier
-                    .fillMaxWidth(0.4f)
+                    .fillMaxWidth(AUTH_FORM_WIDTH)
                     .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = if (isRegisterMode) "Create Account" else "Login",
-                fontSize = 32.sp,
-                color = Color.White,
+            authScreenTitle(isRegisterMode)
+            Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
+            authScreenForm(
+                username = username,
+                onUsernameChange = { username = it },
+                password = password,
+                onPasswordChange = { password = it },
+                errorMessage = errorMessage,
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Username TextField
-            TextField(
-                value = username,
-                onValueChange = { username = it },
-                label = { Text("Username") },
-                modifier = Modifier.fillMaxWidth(),
+            Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
+            authScreenButtons(
+                isRegisterMode = isRegisterMode,
+                onToggleMode = { isRegisterMode = !isRegisterMode },
+                onLogin = { onLogin(username, password) },
+                onRegister = { onRegister(username, password) },
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Password TextField
-            TextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            // Error message (if any)
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = errorMessage,
-                    color = Color.Red,
-                    fontSize = 12.sp,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Login/Register Button
-            Button(
-                onClick = {
-                    if (isRegisterMode) {
-                        onRegister(username, password)
-                    } else {
-                        onLogin(username, password)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (isRegisterMode) "Register" else "Login")
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Toggle between login and register
-            Button(
-                onClick = { isRegisterMode = !isRegisterMode },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    if (isRegisterMode) {
-                        "Already have an account? Login"
-                    } else {
-                        "Don't have an account? Register"
-                    },
-                )
-            }
         }
+    }
+}
+
+@Composable
+private fun authScreenTitle(isRegisterMode: Boolean) {
+    Text(
+        text = if (isRegisterMode) "Create Account" else "Login",
+        fontSize = AUTH_TITLE_SIZE.sp,
+        color = AUTH_TEXT_COLOR,
+    )
+}
+
+@Composable
+private fun authScreenForm(
+    username: String,
+    onUsernameChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    errorMessage: String? = null,
+) {
+    TextField(
+        value = username,
+        onValueChange = onUsernameChange,
+        label = { Text("Username") },
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
+
+    TextField(
+        value = password,
+        onValueChange = onPasswordChange,
+        label = { Text("Password") },
+        modifier = Modifier.fillMaxWidth(),
+    )
+
+    if (errorMessage != null) {
+        Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
+        Text(
+            text = errorMessage,
+            color = AUTH_ERROR_COLOR,
+            fontSize = AUTH_ERROR_SIZE.sp,
+        )
+    }
+}
+
+@Composable
+private fun authScreenButtons(
+    isRegisterMode: Boolean,
+    onToggleMode: () -> Unit,
+    onLogin: () -> Unit,
+    onRegister: () -> Unit,
+) {
+    Button(
+        onClick = { if (isRegisterMode) onRegister() else onLogin() },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(if (isRegisterMode) "Register" else "Login")
+    }
+
+    Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
+
+    Button(
+        onClick = onToggleMode,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            if (isRegisterMode) {
+                "Already have an account? Login"
+            } else {
+                "Don't have an account? Register"
+            },
+        )
     }
 }

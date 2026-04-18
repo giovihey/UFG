@@ -4,11 +4,15 @@ import com.heyteam.ufg.application.port.output.AuthPort
 import com.heyteam.ufg.domain.component.Session
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONException
 import org.json.JSONObject
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+
+private const val HTTP_SUCCESS_MIN = 200
+private const val HTTP_SUCCESS_MAX = 299
 
 /**
  * HttpAuthAdapter communicates with the Go auth service.
@@ -65,7 +69,7 @@ class HttpAuthAdapter(
 
     /**
      * Helper: execute a POST request to the auth service.
-     * Throws exception on non-2xx status code.
+     * Throws AuthServiceException on non-2xx status code or network error.
      *
      * @param url the full URL (e.g., "http://localhost:8080/auth/login")
      * @param authRequest the {username, password} to send
@@ -96,19 +100,33 @@ class HttpAuthAdapter(
         val response = client.send(request, HttpResponse.BodyHandlers.ofString())
 
         // Check status code
-        if (response.statusCode() !in 200..299) {
+        if (response.statusCode() !in HTTP_SUCCESS_MIN..HTTP_SUCCESS_MAX) {
             // Try to parse error message from response body
-            val errorBody =
-                try {
-                    JSONObject(response.body()).getString("error")
-                } catch (e: Exception) {
-                    response.body()
-                }
-            throw RuntimeException(
-                "Auth service error (${response.statusCode()}): $errorBody",
+            var errorBody: String
+            var cause: Exception? = null
+            try {
+                errorBody = JSONObject(response.body()).getString("error")
+            } catch (e: JSONException) {
+                // JSONException: malformed JSON response — preserve the original error
+                errorBody = response.body()
+                cause = e
+            }
+            throw AuthServiceException(
+                statusCode = response.statusCode(),
+                message = errorBody,
+                cause = cause,
             )
         }
 
         return response.body()
     }
 }
+
+/**
+ * Exception thrown when the auth service returns an error.
+ */
+class AuthServiceException(
+    val statusCode: Int,
+    message: String,
+    cause: Exception? = null,
+) : Exception("Auth service error ($statusCode): $message", cause)

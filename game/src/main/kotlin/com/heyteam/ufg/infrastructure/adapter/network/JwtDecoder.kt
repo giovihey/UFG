@@ -3,6 +3,11 @@ package com.heyteam.ufg.infrastructure.adapter.network
 import org.json.JSONObject
 import java.util.Base64
 
+private const val JWT_PARTS_COUNT = 3
+private const val JWT_PAYLOAD_INDEX = 1
+private const val BASE64_PADDING_MODULO = 4
+private const val BASE64_PADDING_OFFSET = 3
+
 /**
  * Decodes a JWT's payload without verifying the signature.
  * The JWT format is: header.payload.signature (each part is base64-encoded)
@@ -17,15 +22,15 @@ import java.util.Base64
  */
 fun decodeJwtPayload(token: String): JwtClaims {
     val parts = token.split(".")
-    if (parts.size != 3) {
-        throw IllegalArgumentException("Invalid JWT format: expected 3 parts, got ${parts.size}")
+    require(parts.size == JWT_PARTS_COUNT) {
+        "Invalid JWT format: expected $JWT_PARTS_COUNT parts, got ${parts.size}"
     }
 
-    val payloadBase64 = parts[1]
+    val payloadBase64 = parts[JWT_PAYLOAD_INDEX]
     // Add padding if needed (base64 decode requires length % 4 == 0)
     val paddedPayload =
         payloadBase64.padEnd(
-            (payloadBase64.length + 3) / 4 * 4,
+            (payloadBase64.length + BASE64_PADDING_OFFSET) / BASE64_PADDING_MODULO * BASE64_PADDING_MODULO,
             '=',
         )
 
@@ -33,7 +38,7 @@ fun decodeJwtPayload(token: String): JwtClaims {
         try {
             Base64.getUrlDecoder().decode(paddedPayload)
         } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("Failed to decode JWT payload: ${e.message}")
+            throw IllegalArgumentException("Failed to decode JWT payload: ${e.message}", e)
         }
 
     val payloadJson = String(decodedBytes, Charsets.UTF_8)

@@ -31,12 +31,16 @@ const val PLAYER_HURTBOX_W = 50.0
 const val PLAYER_HURTBOX_H = 80.0
 const val PLAYER_MAX_HEALTH = 100
 const val POLL_INTERVAL_MS = 100L
+const val SIGNALING_CONNECT_TIMEOUT_MS = 250L
+const val SIGNALING_CONNECT_MAX_ATTEMPTS = 20
+const val TARGET_FPS = 60
 
 // ── Service URLs ──────────────────────────────────────────────────────────
 // auth-service is mapped to 8081 in docker-compose.yml (ports: "8081:8080")
 // signaling stays on 8080
 const val AUTH_BASE_URL = "http://localhost:8081"
 const val SIGNALING_URL = "ws://localhost:8080/ws"
+const val STUN_SERVER = "stun:stun.l.google.com:19302"
 
 fun main(args: Array<String>) {
     // Read --host flag once here — used later in onGameStart.
@@ -78,66 +82,75 @@ fun main(args: Array<String>) {
     }
 
     composeAdapter.onGameStart = { _ ->
-        // Menu Play button → boot WebRTC + game loop on a background thread.
-        // The isHost parameter is ignored here — we use the --host arg instead.
-        // This whole block will be replaced by the lobby service later.
         scope.launch(Dispatchers.IO) {
-            val bridge = WebRtcBridge()
-            val networkAdapter = NetworkAdapter(bridge)
-            val signalingClient = SignalingClient(SIGNALING_URL, bridge)
-
-            // Listeners ASSEMBLE!!!
-            bridge.dataChannelListener = networkAdapter
-            bridge.initialize("stun:stun.l.google.com:19302")
-            signalingClient.connect()
-
-            // Wait for the WebSocket handshake to complete before sending anything.
-            // Without this wait, createOffer() fires before the connection is open
-            // and the SDP is lost — exactly the "Cannot send local description" warning.
-            var attempts = 0
-            while (!signalingClient.isReady() && attempts < 20) {
-                delay(250)
-                attempts++
-            }
-
-            if (!signalingClient.isReady()) {
-                composeAdapter.showError("Could not connect to signaling server. Is it running?")
-                return@launch
-            }
-
-            println("Connected to signaling server. isHost=$isHost")
-
-            if (isHost) bridge.createOffer()
-
-            // Wait for the P2P data channel to open
-            println("Waiting for peer to connect...")
-            while (!networkAdapter.isConnected()) {
-                delay(POLL_INTERVAL_MS)
-            }
-            println("Peer connected! Starting game.")
-
-            val loop =
-                GameLoop(
-                    gameEngine = GameEngine(createWorld()),
-                    inputPort = composeAdapter,
-                    renderPort = composeAdapter,
-                    timeManager = TimeManager(targetFPS = 60),
-                    networkPort = networkAdapter,
-                    isHost = isHost,
-                )
-
-            composeAdapter.onShutdown = {
-                loop.stop()
-                networkAdapter.close()
-            }
-
-            Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
-
-            // Switch to Game screen only once the loop is running
-            composeAdapter.navigate(Screen.Game)
+            onGameStart(composeAdapter, isHost)
         }
     }
     composeAdapter.startUI()
+}
+
+/**
+ * Boot WebRTC + game loop on a background thread.
+ * The isHost parameter comes from the --host CLI arg.
+ * This whole function will be replaced by the lobby service later.
+ */
+private suspend fun onGameStart(
+    composeAdapter: ComposeAdapter,
+    isHost: Boolean,
+) {
+    val bridge = WebRtcBridge()
+    val networkAdapter = NetworkAdapter(bridge)
+    val signalingClient = SignalingClient(SIGNALING_URL, bridge)
+
+    // Listeners ASSEMBLE!!!
+    bridge.dataChannelListener = networkAdapter
+    bridge.initialize(STUN_SERVER)
+    signalingClient.connect()
+
+    // Wait for the WebSocket handshake to complete before sending anything.
+    // Without this wait, createOffer() fires before the connection is open
+    // and the SDP is lost — exactly the "Cannot send local description" warning.
+    var attempts = 0
+    while (!signalingClient.isReady() && attempts < SIGNALING_CONNECT_MAX_ATTEMPTS) {
+        delay(SIGNALING_CONNECT_TIMEOUT_MS)
+        attempts++
+    }
+
+    if (!signalingClient.isReady()) {
+        composeAdapter.showError("Could not connect to signaling server. Is it running?")
+        return
+    }
+
+    println("Connected to signaling server. isHost=$isHost")
+
+    if (isHost) bridge.createOffer()
+
+    // Wait for the P2P data channel to open
+    println("Waiting for peer to connect...")
+    while (!networkAdapter.isConnected()) {
+        delay(POLL_INTERVAL_MS)
+    }
+    println("Peer connected! Starting game.")
+
+    val loop =
+        GameLoop(
+            gameEngine = GameEngine(createWorld()),
+            inputPort = composeAdapter,
+            renderPort = composeAdapter,
+            timeManager = TimeManager(targetFPS = TARGET_FPS),
+            networkPort = networkAdapter,
+            isHost = isHost,
+        )
+
+    composeAdapter.onShutdown = {
+        loop.stop()
+        networkAdapter.close()
+    }
+
+    Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
+
+    // Switch to Game screen only once the loop is running
+    composeAdapter.navigate(Screen.Game)
 }
 
 fun createWorld(): World {
