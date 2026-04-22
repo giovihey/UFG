@@ -8,12 +8,10 @@ import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 
 object PhysicsSystem {
-    fun update(
-        state: World,
-        dt: Double,
-    ): World {
+    fun update(state: World): World {
         if (state.gameStatus != GameStatus.RUNNING) return state
 
+        val dt = GameConstants.FRAME_DT
         val updatedPlayers =
             state.players.mapValues { (_, player) ->
                 updatePlayerPhysics(player, dt)

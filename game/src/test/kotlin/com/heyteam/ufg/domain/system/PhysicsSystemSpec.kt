@@ -41,10 +41,7 @@ class PhysicsSystemSpec :
                 physicsState = PlayerPhysicsState(),
             )
 
-        fun updateWorld(
-            world: World,
-            dt: Double = 0.01667,
-        ): World = PhysicsSystem.update(world, dt)
+        fun updateWorld(world: World): World = PhysicsSystem.update(world)
 
         // ========== SINGLE PLAYER PHYSICS ==========
         "World with single player updates correctly" {
@@ -156,7 +153,7 @@ class PhysicsSystemSpec :
                     gameStatus = GameStatus.ROUND_END,
                 )
 
-            val result = PhysicsSystem.update(world, 0.01667)
+            val result = PhysicsSystem.update(world)
 
             result shouldBe world
             result.players[1]!!.position.x shouldBe 100.0

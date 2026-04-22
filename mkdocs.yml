@@ -1,4 +1,4 @@
-site_name: "UFG // ULTRA FIGHTING GAME"
+site_name: "UFG // ULTIMATE FIGHTING GAME"
 site_url: https://giovihey.github.io/UFG/
 nav:
   - "// HOME": index.md
@@ -8,6 +8,7 @@ nav:
       - Design: design.md
       - Architecture: architecture.md
       - Networking: networking.md
+      - Rollback: rollback.md
       - Implementation: implementation.md
       - Validation: validation.md
       - Deployment: deployment.md

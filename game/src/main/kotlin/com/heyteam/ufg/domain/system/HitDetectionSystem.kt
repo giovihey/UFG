@@ -11,14 +11,18 @@ object HitDetectionSystem {
         if (world.gameStatus != GameStatus.RUNNING) return world
 
         var worldForUpdate = world
-        worldForUpdate.players.values.forEach { attacker ->
-            // skip this attacker, continue loop
+        // Iterate in a stable, deterministic order (by player id) so rollback re-simulation
+        // produces bit-identical state regardless of the underlying Map implementation.
+        val orderedIds = worldForUpdate.players.keys.sorted()
+        orderedIds.forEach { attackerId ->
+            val attacker = worldForUpdate.players[attackerId] ?: return@forEach
             val state = attacker.attackState ?: return@forEach
             if (state.hasLanded) return@forEach
 
             val hitBox = attacker.activeHitBox ?: return@forEach
-            worldForUpdate.players.values
-                .filter { it.id != attacker.id }
+            orderedIds
+                .filter { it != attackerId }
+                .mapNotNull { worldForUpdate.players[it] }
                 .forEach { opponent ->
                     val opponentHurtBox =
                         opponent.effectiveHurtbox.copy(

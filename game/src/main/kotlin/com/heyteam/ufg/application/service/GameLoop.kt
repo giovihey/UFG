@@ -16,6 +16,20 @@ class GameLoop(
 ) {
     @Volatile private var isRunning = true
 
+    private val localPlayerId = if (isHost) 1 else 2
+    private val remotePlayerId = if (isHost) 2 else 1
+
+    // Rollback lives in the application layer and owns input prediction, snapshot ring,
+    // and the rewind-and-replay state machine. GameLoop just paces and routes IO.
+    private val rollback =
+        RollbackService(
+            engine = gameEngine,
+            networkInput = networkPort,
+            networkOutput = networkPort,
+            localPlayerId = localPlayerId,
+            remotePlayerId = remotePlayerId,
+        )
+
     fun stop() {
         isRunning = false
     }
@@ -24,10 +38,13 @@ class GameLoop(
         isRunning = true
         while (isRunning) {
             val timeStepResult: FixedTimestepResult = timeManager.update()
+            // Clamp catch-up to one simulation step per render tick: rollback already
+            // handles missing remote input, so we don't need the accumulator to advance
+            // more than once per wall-clock tick.
             val steps = minOf(timeStepResult.steps, 1)
 
             repeat(steps) {
-                if (!processFrame(timeStepResult)) {
+                if (!processFrame()) {
                     isRunning = false
                 }
             }
@@ -43,31 +60,16 @@ class GameLoop(
         }
     }
 
-    private fun processFrame(timeStepResult: FixedTimestepResult): Boolean {
-        val frame = gameEngine.getWorld().frameNumber
-        val localInput: InputState = inputPort.pollInputState(if (isHost) 1 else 2)
-        println("Sending frame $frame, steps=$timeStepResult.steps")
-        networkPort.sendInput(localInput, frame)
-
-        // block until remote input arrives for this frame
-        var remoteInput = networkPort.pollRemoteInput(frame)
-        while (remoteInput == null) {
-            if (!networkPort.isConnected() || !isRunning) {
-                println("Stopping game loop (Connected: ${networkPort.isConnected()}, Running: $isRunning)")
-                return false
-            }
-            Thread.sleep(1)
-            remoteInput = networkPort.pollRemoteInput(frame)
+    private fun processFrame(): Boolean {
+        if (!networkPort.isConnected()) {
+            println("Stopping game loop (peer disconnected)")
+            return false
         }
-
-        val inputs =
-            if (isHost) {
-                mapOf(1 to localInput, 2 to remoteInput)
-            } else {
-                mapOf(1 to remoteInput, 2 to localInput)
-            }
-
-        gameEngine.step(inputs, timeStepResult.fixedDt)
+        val localInput: InputState = inputPort.pollInputState(localPlayerId)
+        // Non-blocking: if remote input for this frame has not arrived, RollbackService
+        // predicts it (repeat last) and advances. A later authoritative packet will
+        // trigger a rewind-and-replay if the prediction was wrong.
+        rollback.tick(localInput)
         return true
     }
 }

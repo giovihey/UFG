@@ -42,10 +42,7 @@ class PlayerStateSpec :
                 physicsState = PlayerPhysicsState(),
             )
 
-        fun updatePlayer(
-            player: Player,
-            dt: Double = 0.01667,
-        ): Player {
+        fun updatePlayer(player: Player): Player {
             val world =
                 World(
                     frameNumber = 0,
@@ -53,14 +50,11 @@ class PlayerStateSpec :
                     gameStatus = GameStatus.RUNNING,
                 )
             return PhysicsSystem
-                .update(world, dt)
+                .update(world)
                 .players[1]!!
         }
 
-        fun updateWorld(
-            world: World,
-            dt: Double = 0.01667,
-        ): World = PhysicsSystem.update(world, dt)
+        fun updateWorld(world: World): World = PhysicsSystem.update(world)
 
         "IDLE: no direction + grounded = IDLE" {
             val player = createPlayer(direction = 0.0, posY = GameConstants.FLOOR_Y)
@@ -97,7 +91,7 @@ class PlayerStateSpec :
         "WALKING: position X decreases when direction is negative" {
             val player = createPlayer(direction = -1.0, posX = 150.0, posY = GameConstants.FLOOR_Y)
             val updated = updatePlayer(player)
-            updated.position.x shouldBe 150.0 - (GameConstants.WALK_SPEED * 0.01667)
+            updated.position.x shouldBe 150.0 - (GameConstants.WALK_SPEED * GameConstants.FRAME_DT)
         }
 
         // ========== JUMPING STATE ==========

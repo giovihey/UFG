@@ -78,23 +78,25 @@ The network layer fits into hexagonal architecture as an infrastructure adapter:
 
 ```
 application/
-  port/input/NetworkInputPort.kt    # pollRemoteInput(frame) → InputState?
-  port/output/NetworkOutputPort.kt  # sendInput(state, frame)
+  port/input/NetworkInputPort.kt    # drainRemoteInputs() → List<FramedInput>
+  port/input/FramedInput.kt         # (frame, InputState) DTO
+  port/output/NetworkOutputPort.kt  # sendInput(state, frame) + sendInputWindow(window)
+  service/RollbackService.kt        # predict / advance / rewind orchestration
 
 infrastructure/adapter/network/
-  NetworkAdapter.kt                 # Implements both ports, uses ConcurrentHashMap
+  NetworkAdapter.kt                 # Implements both ports, ConcurrentLinkedQueue + map
   WebRtcBridge.kt                   # JNI bridge to C++ libdatachannel
   SignalingClient.kt                # WebSocket client for SDP/ICE exchange
 ```
 
 ### Threading Model
 
-Two threads share data via `ConcurrentHashMap<Long, InputState>`:
+Two threads share data via lock-free collections:
 
-- **JNI thread** (libdatachannel): receives bytes from remote, calls `onRemoteInput()` → puts in map
-- **Game loop thread**: calls `pollRemoteInput(frame)` → removes from map
+- **JNI thread** (libdatachannel): receives bytes from remote, calls `onRemoteInput()` → enqueues into `ConcurrentLinkedQueue<FramedInput>` (and also updates a legacy `ConcurrentHashMap<Long, InputState>` for any remaining `pollRemoteInput` caller).
+- **Game loop thread**: calls `drainRemoteInputs()` once per tick → empties the queue.
 
-The game loop blocks on `pollRemoteInput()` until the remote input arrives — this is lockstep synchronization.
+**The game loop no longer blocks.** When the remote input for the current frame has not yet arrived, `RollbackService` predicts it (repeat last known) and advances; a later authoritative packet triggers rewind-and-replay if the prediction was wrong. See [Rollback Netcode](rollback.md).
 
 ## C++ / JNI Layer
 
