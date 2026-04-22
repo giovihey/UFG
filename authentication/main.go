@@ -1,16 +1,18 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
-// It's responsible for:
-//   1. Reading config from environment variables
-//   2. Connecting to the database
-//   3. Setting up the HTTP routes
-//   4. Starting the server
+// main is responsible for:
+//  1. Reading config from environment variables
+//  2. Connecting to the database
+//  3. Setting up the HTTP routes
+//  4. Starting the server
 //
 // It wires together the Repository and the Handler.
 
@@ -40,8 +42,25 @@ func main() {
 	mux.HandleFunc("POST /auth/register", h.Register)
 	mux.HandleFunc("POST /auth/login", h.Login)
 
-	// Use this to know if the service is alive.
+	// /health is used by load balancers, Docker, and Kubernetes to decide
+	// whether to route traffic to this instance.
+	//
+	// Returning 200 when the DB is down would be a lie — the service cannot
+	// actually handle auth requests without a DB. We Ping Postgres with a
+	// short deadline so a hung DB doesn't make the health check hang too.
+	//
+	// 200 OK           → instance is healthy, send traffic
+	// 503 Unavailable  → instance cannot serve requests, stop sending traffic
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancel()
+
+		if err := repo.Ping(ctx); err != nil {
+			log.Printf("health: db ping failed: %v", err)
+			writeJSON(w, http.StatusServiceUnavailable, errorResponse{"db unavailable"})
+			return
+		}
+
 		w.WriteHeader(http.StatusOK)
 	})
 
