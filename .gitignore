@@ -135,7 +135,9 @@ hs_err_pid*
 .bsp
 project/target
 
-_site/
+site/
+
+.env
 
 Gemfile.lock
 
