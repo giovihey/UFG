@@ -1,3 +1,13 @@
+## [3.5.0](https://github.com/giovihey/UFG/compare/v3.4.0...v3.5.0) (2026-04-22)
+
+### Features
+
+* add auth in the game ([ab93782](https://github.com/giovihey/UFG/commit/ab93782e7a4d36a9fb05eccff772b4c0ddefa090))
+* add first page ([8de360f](https://github.com/giovihey/UFG/commit/8de360f639f78c6035320fc3d504b6a08cb87903))
+* add menu screen ([eccfd11](https://github.com/giovihey/UFG/commit/eccfd114044984b913b562139941cd287015209e))
+* start develop the screen manager ([88c31ef](https://github.com/giovihey/UFG/commit/88c31efb7839aa951d20d590ca64348c9b0ac8d2))
+* working on auth service ([c248df7](https://github.com/giovihey/UFG/commit/c248df7b5649072cd6152d12aaae49ca1ded8e62))
+
 ## [3.4.0](https://github.com/giovihey/UFG/compare/v3.3.0...v3.4.0) (2026-04-16)
 
 ### Features
