@@ -34,5 +34,12 @@ data class Player(
             )
 
     val activeHitBox: Rectangle?
-        get() = attackState?.activeHitBox(topLeft, effectiveHurtbox.width, physicsState.facing)
+        get() {
+            val fullTopLeft =
+                Position(
+                    x = position.x - hurtBox.width / 2,
+                    y = position.y - hurtBox.height,
+                )
+            return attackState?.activeHitBox(fullTopLeft, hurtBox.width, physicsState.facing)
+        }
 }
