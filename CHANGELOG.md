@@ -1,3 +1,9 @@
+## [3.7.0](https://github.com/giovihey/UFG/compare/v3.6.0...v3.7.0) (2026-04-22)
+
+### Features
+
+* add rollback netcode ([8103f77](https://github.com/giovihey/UFG/commit/8103f771c8298696da78599e1a8f9e32eee90c39))
+
 ## [3.6.0](https://github.com/giovihey/UFG/compare/v3.5.0...v3.6.0) (2026-04-22)
 
 ### Features
