@@ -1,6 +1,50 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ufg
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ufg_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ./authentication
+      dockerfile: Dockerfile
+    environment:
+      DB_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/ufg
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: heyteam-auth
+      JWT_AUDIENCE: ufg-game
+    ports:
+      - "8081:8080"
+    networks:
+      - ufg_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   signaling:
     build: ./signaling_server
     ports:
       - "8080:8080"
     restart: unless-stopped
+    networks:
+      - ufg_net
+
+networks:
+  ufg_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
