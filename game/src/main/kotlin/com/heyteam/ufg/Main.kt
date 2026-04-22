@@ -13,9 +13,8 @@ import com.heyteam.ufg.domain.component.Facing
 import com.heyteam.ufg.domain.component.Movement
 import com.heyteam.ufg.domain.component.PlayerPhysicsState
 import com.heyteam.ufg.domain.component.Position
-import com.heyteam.ufg.domain.entity.Character
-import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.component.Screen
+import com.heyteam.ufg.domain.entity.Character
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
@@ -24,7 +23,6 @@ import com.heyteam.ufg.infrastructure.adapter.network.NetworkAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.SignalingClient
 import com.heyteam.ufg.infrastructure.adapter.network.WebRtcBridge
 import com.heyteam.ufg.infrastructure.adapter.output.JsonCharacterRepository
-import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -125,7 +123,6 @@ private suspend fun onGameStart(
         return
     }
 
-    val composeAdapter = ComposeAdapter()
     val timeManager = TimeManager(targetFPS = 60)
     val characters: CharacterRepository = JsonCharacterRepository()
     val engine = GameEngine(createWorld(characters))
@@ -142,10 +139,10 @@ private suspend fun onGameStart(
 
     val loop =
         GameLoop(
-            gameEngine = GameEngine(createWorld()),
+            gameEngine = engine,
             inputPort = composeAdapter,
             renderPort = composeAdapter,
-            timeManager = TimeManager(targetFPS = TARGET_FPS),
+            timeManager = timeManager,
             networkPort = networkAdapter,
             isHost = isHost,
         )
