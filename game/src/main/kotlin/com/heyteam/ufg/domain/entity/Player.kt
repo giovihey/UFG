@@ -16,12 +16,30 @@ data class Player(
     val hurtBox: Rectangle,
     val physicsState: PlayerPhysicsState = PlayerPhysicsState(),
     val attackState: AttackState? = null,
+    val character: Character = Character.DEFAULT,
 ) {
-    // The top-left corner for rendering and collision, derived from position
+    val effectiveHurtbox: Rectangle
+        get() =
+            if (physicsState.isCrouching) {
+                hurtBox.copy(height = hurtBox.height / 2)
+            } else {
+                hurtBox
+            }
+
     val topLeft: Position
         get() =
             Position(
-                x = position.x - hurtBox.width / 2, // centered horizontally
-                y = position.y - hurtBox.height, // above the feet
+                x = position.x - effectiveHurtbox.width / 2,
+                y = position.y - effectiveHurtbox.height,
             )
+
+    val activeHitBox: Rectangle?
+        get() {
+            val fullTopLeft =
+                Position(
+                    x = position.x - hurtBox.width / 2,
+                    y = position.y - hurtBox.height,
+                )
+            return attackState?.activeHitBox(fullTopLeft, hurtBox.width, physicsState.facing)
+        }
 }

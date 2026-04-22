@@ -1,7 +1,5 @@
 package com.heyteam.ufg.domain.component
 
-import com.heyteam.ufg.domain.component.GameButton
-
 @JvmInline
 value class InputState(
     val mask: Int,

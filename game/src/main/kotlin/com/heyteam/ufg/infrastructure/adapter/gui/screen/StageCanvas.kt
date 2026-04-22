@@ -73,9 +73,9 @@ private fun DrawScope.drawPlayers(world: World) {
         drawRect(
             color = color,
             topLeft = Offset(player.topLeft.x.toFloat(), player.topLeft.y.toFloat()),
-            size = Size(player.hurtBox.width.toFloat(), player.hurtBox.height.toFloat()),
+            size = Size(player.effectiveHurtbox.width.toFloat(), player.effectiveHurtbox.height.toFloat()),
         )
-        player.attackState?.activeHitBox(player.topLeft)?.let { box ->
+        player.activeHitBox?.let { box ->
             drawRect(
                 color = Color.Yellow,
                 topLeft = Offset(box.x.toFloat(), box.y.toFloat()),

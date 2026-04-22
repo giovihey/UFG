@@ -16,12 +16,12 @@ object HitDetectionSystem {
             val state = attacker.attackState ?: return@forEach
             if (state.hasLanded) return@forEach
 
-            val hitBox = state.activeHitBox(attacker.topLeft) ?: return@forEach
+            val hitBox = attacker.activeHitBox ?: return@forEach
             worldForUpdate.players.values
                 .filter { it.id != attacker.id }
                 .forEach { opponent ->
                     val opponentHurtBox =
-                        opponent.hurtBox.copy(
+                        opponent.effectiveHurtbox.copy(
                             x = opponent.topLeft.x,
                             y = opponent.topLeft.y,
                         )
@@ -40,6 +40,7 @@ object HitDetectionSystem {
         state: AttackState,
     ): World {
         val knockbackDir = if (attacker.position.x < opponent.position.x) 1.0 else -1.0
+        val knockback = state.attack.knockbackSpeed / opponent.character.weight
 
         val damagedOpponent =
             opponent.copy(
@@ -54,7 +55,7 @@ object HitDetectionSystem {
                     ),
                 nextMove =
                     opponent.nextMove.copy(
-                        speedX = state.attack.knockbackSpeed * knockbackDir,
+                        speedX = knockback * knockbackDir,
                     ),
             )
         val updatedAttacker =

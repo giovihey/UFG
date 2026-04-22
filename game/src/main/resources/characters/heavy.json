@@ -1,0 +1,43 @@
+{
+  "id": 3,
+  "name": "Brom",
+  "maxHealth": 120,
+  "walkSpeed": 80.0,
+  "jumpSpeed": -280.0,
+  "weight": 1.4,
+  "defaultHurtbox": { "offsetX": 0.0, "offsetY": 0.0, "width": 60.0, "height": 90.0 },
+  "moveList": {
+    "NEUTRAL_PUNCH": {
+      "name": "Hammer Fist",
+      "damage": 14,
+      "buttonInput": "PUNCH",
+      "hitBox": { "offsetX": 30.0, "offsetY": 5.0, "width": 55.0, "height": 40.0 },
+      "startupFrames": 8, "activeFrames": 4, "recoveryFrames": 16,
+      "hitstunFrames": 18, "knockbackSpeed": 260.0
+    },
+    "NEUTRAL_KICK": {
+      "name": "Stomp",
+      "damage": 18,
+      "buttonInput": "KICK",
+      "hitBox": { "offsetX": 28.0, "offsetY": 25.0, "width": 58.0, "height": 40.0 },
+      "startupFrames": 12, "activeFrames": 5, "recoveryFrames": 20,
+      "hitstunFrames": 22, "knockbackSpeed": 320.0
+    },
+    "DOWN_PUNCH": {
+      "name": "Gut Punch",
+      "damage": 10,
+      "buttonInput": "PUNCH",
+      "hitBox": { "offsetX": 28.0, "offsetY": 50.0, "width": 42.0, "height": 22.0 },
+      "startupFrames": 7, "activeFrames": 3, "recoveryFrames": 14,
+      "hitstunFrames": 15, "knockbackSpeed": 200.0
+    },
+    "DOWN_KICK": {
+      "name": "Axe Sweep",
+      "damage": 16,
+      "buttonInput": "KICK",
+      "hitBox": { "offsetX": 28.0, "offsetY": 70.0, "width": 65.0, "height": 16.0 },
+      "startupFrames": 14, "activeFrames": 4, "recoveryFrames": 24,
+      "hitstunFrames": 20, "knockbackSpeed": 280.0
+    }
+  }
+}

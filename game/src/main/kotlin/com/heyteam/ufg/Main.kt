@@ -1,5 +1,6 @@
 package com.heyteam.ufg
 
+import com.heyteam.ufg.application.port.output.CharacterRepository
 import com.heyteam.ufg.application.service.CheckSessionUseCase
 import com.heyteam.ufg.application.service.GameEngine
 import com.heyteam.ufg.application.service.GameLoop
@@ -8,11 +9,12 @@ import com.heyteam.ufg.application.service.RegisterUseCase
 import com.heyteam.ufg.application.service.SessionStore
 import com.heyteam.ufg.application.service.TimeManager
 import com.heyteam.ufg.domain.component.Direction
-import com.heyteam.ufg.domain.component.Health
+import com.heyteam.ufg.domain.component.Facing
 import com.heyteam.ufg.domain.component.Movement
+import com.heyteam.ufg.domain.component.PlayerPhysicsState
 import com.heyteam.ufg.domain.component.Position
-import com.heyteam.ufg.domain.component.Rectangle
 import com.heyteam.ufg.domain.component.Screen
+import com.heyteam.ufg.domain.entity.Character
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
@@ -20,6 +22,7 @@ import com.heyteam.ufg.infrastructure.adapter.network.HttpAuthAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.NetworkAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.SignalingClient
 import com.heyteam.ufg.infrastructure.adapter.network.WebRtcBridge
+import com.heyteam.ufg.infrastructure.adapter.output.JsonCharacterRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -27,10 +30,9 @@ import kotlinx.coroutines.launch
 
 const val P1_START_X = 150.0
 const val P2_START_X = 600.0
-const val PLAYER_HURTBOX_W = 50.0
-const val PLAYER_HURTBOX_H = 80.0
-const val PLAYER_MAX_HEALTH = 100
 const val POLL_INTERVAL_MS = 100L
+const val P1_CHARACTER_ID = 2 // rushdown
+const val P2_CHARACTER_ID = 3 // heavy
 const val SIGNALING_CONNECT_TIMEOUT_MS = 250L
 const val SIGNALING_CONNECT_MAX_ATTEMPTS = 20
 const val TARGET_FPS = 60
@@ -121,6 +123,9 @@ private suspend fun onGameStart(
         return
     }
 
+    val timeManager = TimeManager(targetFPS = 60)
+    val characters: CharacterRepository = JsonCharacterRepository()
+    val engine = GameEngine(createWorld(characters))
     println("Connected to signaling server. isHost=$isHost")
 
     if (isHost) bridge.createOffer()
@@ -134,10 +139,10 @@ private suspend fun onGameStart(
 
     val loop =
         GameLoop(
-            gameEngine = GameEngine(createWorld()),
+            gameEngine = engine,
             inputPort = composeAdapter,
             renderPort = composeAdapter,
-            timeManager = TimeManager(targetFPS = TARGET_FPS),
+            timeManager = timeManager,
             networkPort = networkAdapter,
             isHost = isHost,
         )
@@ -153,36 +158,34 @@ private suspend fun onGameStart(
     composeAdapter.navigate(Screen.Game)
 }
 
-fun createWorld(): World {
-    val p1 =
-        Player(
-            id = 1,
-            name = "P1",
-            position = Position(P1_START_X, 0.0),
-            nextMove =
-                Movement(
-                    direction = Direction(0.0, 0.0),
-                    position = Position(P1_START_X, 0.0),
-                    speedX = 0.0,
-                    speedY = 0.0,
-                ),
-            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
-            hurtBox = Rectangle(P1_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
-        )
-    val p2 =
-        Player(
-            id = 2,
-            name = "P2",
-            position = Position(P2_START_X, 0.0),
-            nextMove =
-                Movement(
-                    direction = Direction(0.0, 0.0),
-                    position = Position(P2_START_X, 0.0),
-                    speedX = 0.0,
-                    speedY = 0.0,
-                ),
-            health = Health(PLAYER_MAX_HEALTH, PLAYER_MAX_HEALTH),
-            hurtBox = Rectangle(P2_START_X, 0.0, PLAYER_HURTBOX_W, PLAYER_HURTBOX_H),
-        )
+fun createWorld(characters: CharacterRepository): World {
+    val p1Character = requireNotNull(characters.findById(P1_CHARACTER_ID))
+    val p2Character = requireNotNull(characters.findById(P2_CHARACTER_ID))
+    val p1 = spawnPlayer(id = 1, name = "P1", startX = P1_START_X, character = p1Character, facing = Facing.RIGHT)
+    val p2 = spawnPlayer(id = 2, name = "P2", startX = P2_START_X, character = p2Character, facing = Facing.LEFT)
     return World(frameNumber = 0L, players = mapOf(1 to p1, 2 to p2))
 }
+
+private fun spawnPlayer(
+    id: Int,
+    name: String,
+    startX: Double,
+    character: Character,
+    facing: Facing,
+): Player =
+    Player(
+        id = id,
+        name = name,
+        position = Position(startX, 0.0),
+        nextMove =
+            Movement(
+                direction = Direction(0.0, 0.0),
+                position = Position(startX, 0.0),
+                speedX = 0.0,
+                speedY = 0.0,
+            ),
+        health = character.maxHealth,
+        hurtBox = character.defaultHurtbox,
+        character = character,
+        physicsState = PlayerPhysicsState(facing = facing),
+    )

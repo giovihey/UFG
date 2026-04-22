@@ -1,0 +1,43 @@
+{
+  "id": 1,
+  "name": "Ryo",
+  "maxHealth": 100,
+  "walkSpeed": 120.0,
+  "jumpSpeed": -350.0,
+  "weight": 1.0,
+  "defaultHurtbox": { "offsetX": 0.0, "offsetY": 0.0, "width": 50.0, "height": 80.0 },
+  "moveList": {
+    "NEUTRAL_PUNCH": {
+      "name": "Jab",
+      "damage": 8,
+      "buttonInput": "PUNCH",
+      "hitBox": { "offsetX": 25.0, "offsetY": 5.0, "width": 40.0, "height": 30.0 },
+      "startupFrames": 4, "activeFrames": 3, "recoveryFrames": 8,
+      "hitstunFrames": 12, "knockbackSpeed": 150.0
+    },
+    "NEUTRAL_KICK": {
+      "name": "Roundhouse",
+      "damage": 12,
+      "buttonInput": "KICK",
+      "hitBox": { "offsetX": 25.0, "offsetY": 20.0, "width": 50.0, "height": 30.0 },
+      "startupFrames": 8, "activeFrames": 4, "recoveryFrames": 14,
+      "hitstunFrames": 16, "knockbackSpeed": 220.0
+    },
+    "DOWN_PUNCH": {
+      "name": "Low Jab",
+      "damage": 6,
+      "buttonInput": "PUNCH",
+      "hitBox": { "offsetX": 22.0, "offsetY": 45.0, "width": 36.0, "height": 18.0 },
+      "startupFrames": 3, "activeFrames": 2, "recoveryFrames": 7,
+      "hitstunFrames": 10, "knockbackSpeed": 100.0
+    },
+    "DOWN_KICK": {
+      "name": "Sweep",
+      "damage": 10,
+      "buttonInput": "KICK",
+      "hitBox": { "offsetX": 22.0, "offsetY": 60.0, "width": 55.0, "height": 14.0 },
+      "startupFrames": 9, "activeFrames": 3, "recoveryFrames": 18,
+      "hitstunFrames": 18, "knockbackSpeed": 180.0
+    }
+  }
+}
