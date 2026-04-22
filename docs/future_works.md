@@ -1,16 +1,8 @@
 # Future Works
 
-## Rollback Netcode
+## Rollback Netcode — **Done**
 
-**Priority**: High — next milestone after combat mechanics.
-
-The current lockstep model blocks every frame waiting for the remote input. With any latency, this creates visible stuttering. Rollback netcode would:
-
-1. **Predict** the remote input (repeat last known input)
-2. **Simulate** forward without waiting
-3. **Rollback** and re-simulate if the prediction was wrong
-
-This requires the `World` to be snapshotted and restored efficiently — the immutable `data class` architecture was designed with this in mind.
+Implemented in `application/service/RollbackService.kt`. See [Rollback Netcode](rollback.md) for the full write-up. Remaining follow-ups documented there: full desync recovery, adaptive input delay, periodic state-hash exchange.
 
 ## Blocking Mechanic
 

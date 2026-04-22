@@ -10,11 +10,10 @@ object GameLogic {
     fun step(
         world: World,
         inputs: Map<Int, InputState>,
-        fixedDt: Double,
     ): World {
         var next = InputSystem.apply(world, inputs)
         next = AttackSystem.update(next)
-        next = PhysicsSystem.update(next, fixedDt)
+        next = PhysicsSystem.update(next)
         next = HitDetectionSystem.update(next)
         next = applyGameRules(next)
         next = next.copyWithFrameIncrement()

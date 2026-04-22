@@ -32,6 +32,10 @@ object GameConstants {
     const val ROUND_END_DELAY_MS = 2000L // 2 seconds
 
     const val FRAMES_PER_SECOND = 60L
+
+    // Deterministic physics step: use this constant everywhere instead of a wall-clock-derived dt.
+    // Rollback requires bit-identical simulation across peers, so the step magnitude cannot vary.
+    const val FRAME_DT: Double = 1.0 / 60.0
     const val KNOCKBACK_FRICTION = 0.92
 
     const val SCALE = 0.001

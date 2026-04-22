@@ -9,10 +9,12 @@ class GameEngine(
 ) {
     fun getWorld(): World = world
 
-    fun step(
-        inputs: Map<Int, InputState>,
-        fixedDt: Double,
-    ) {
-        world = GameLogic.step(world, inputs, fixedDt)
+    fun step(inputs: Map<Int, InputState>) {
+        world = GameLogic.step(world, inputs)
+    }
+
+    // Used by RollbackService to restore a snapshot before re-simulation.
+    fun setWorld(newWorld: World) {
+        world = newWorld
     }
 }
