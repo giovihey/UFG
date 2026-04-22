@@ -1,3 +1,14 @@
+## [3.6.0](https://github.com/giovihey/UFG/compare/v3.5.0...v3.6.0) (2026-04-22)
+
+### Features
+
+* add character details ([54fa32f](https://github.com/giovihey/UFG/commit/54fa32f6d3864e9eee42e514505e50a33db6ab6d))
+* now attacks work ([cbe7ff4](https://github.com/giovihey/UFG/commit/cbe7ff4d07d727541a229fa10dbc2353f8c3130d))
+
+### Bug Fixes
+
+* merge problems solved ([63534b0](https://github.com/giovihey/UFG/commit/63534b0dd857ba783e5480f2ab79db27513e93ef))
+
 ## [3.5.0](https://github.com/giovihey/UFG/compare/v3.4.0...v3.5.0) (2026-04-22)
 
 ### Features
