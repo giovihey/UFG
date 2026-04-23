@@ -9,6 +9,7 @@ nav:
       - Architecture: architecture.md
       - Networking: networking.md
       - Rollback: rollback.md
+      - Logging: logging.md
       - Implementation: implementation.md
       - Validation: validation.md
       - Deployment: deployment.md

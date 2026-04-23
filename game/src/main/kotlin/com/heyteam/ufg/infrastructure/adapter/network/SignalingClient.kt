@@ -1,10 +1,13 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.json.JSONObject
 import java.lang.Exception
 import java.net.URI
+
+private val log = KotlinLogging.logger {}
 
 class SignalingClient(
     private val serverUrl: String,
@@ -17,11 +20,11 @@ class SignalingClient(
         ws =
             object : WebSocketClient(URI(serverUrl)) {
                 override fun onOpen(handshakedata: ServerHandshake?) {
-                    println("connected to signaling server")
+                    log.info { "Connected to signaling server" }
                 }
 
                 override fun onMessage(message: String?) {
-                    println("Signaling received: $message")
+                    log.debug { "Signaling received: $message" }
                     val json = JSONObject(message)
                     when (json.getString("type")) {
                         "sdp" -> bridge.setRemoteDescription(json.getString("sdp"))
@@ -34,11 +37,11 @@ class SignalingClient(
                     reason: String?,
                     remote: Boolean,
                 ) {
-                    println("Disconnected from signaling server")
+                    log.info { "Disconnected from signaling server" }
                 }
 
                 override fun onError(ex: Exception?) {
-                    ex?.printStackTrace()
+                    log.error(ex) { "Signaling socket error" }
                 }
             }
         ws.connectBlocking()
@@ -56,7 +59,7 @@ class SignalingClient(
                 json.put("sdp", sdp)
                 ws.send(json.toString())
             } else {
-                println("Warning: Cannot send local description, signaling WebSocket is not open")
+                log.warn { "Cannot send local description, signaling WebSocket is not open" }
             }
         }
     }
@@ -72,7 +75,7 @@ class SignalingClient(
             json.put("mid", mid)
             ws.send(json.toString())
         } else {
-            println("Warning: Cannot send local candidate, signaling WebSocket is not open")
+            log.warn { "Cannot send local candidate, signaling WebSocket is not open" }
         }
     }
 }

@@ -18,15 +18,19 @@ import com.heyteam.ufg.domain.entity.Character
 import com.heyteam.ufg.domain.entity.Player
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
+import com.heyteam.ufg.infrastructure.adapter.network.FakeLagInputPort
 import com.heyteam.ufg.infrastructure.adapter.network.HttpAuthAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.NetworkAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.SignalingClient
 import com.heyteam.ufg.infrastructure.adapter.network.WebRtcBridge
 import com.heyteam.ufg.infrastructure.adapter.output.JsonCharacterRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private val log = KotlinLogging.logger {}
 
 const val P1_START_X = 150.0
 const val P2_START_X = 600.0
@@ -48,6 +52,17 @@ fun main(args: Array<String>) {
     // Read --host flag once here — used later in onGameStart.
     // Temporary until the lobby service assigns host/guest automatically.
     val isHost = args.contains("--host")
+
+    // --fake-lag=N injects N ticks of delay on received remote inputs. Used to demo
+    // rollback behaviour on loopback where authoritative inputs would otherwise always
+    // arrive on time and no rewinds would ever fire.
+    val fakeLag =
+        args
+            .firstOrNull { it.startsWith("--fake-lag=") }
+            ?.removePrefix("--fake-lag=")
+            ?.toIntOrNull()
+            ?.coerceAtLeast(0)
+            ?: 0
 
     val scope = CoroutineScope(Dispatchers.Default)
 
@@ -85,7 +100,7 @@ fun main(args: Array<String>) {
 
     composeAdapter.onGameStart = { _ ->
         scope.launch(Dispatchers.IO) {
-            onGameStart(composeAdapter, isHost)
+            onGameStart(composeAdapter, isHost, fakeLag)
         }
     }
     composeAdapter.startUI()
@@ -99,9 +114,11 @@ fun main(args: Array<String>) {
 private suspend fun onGameStart(
     composeAdapter: ComposeAdapter,
     isHost: Boolean,
+    fakeLag: Int,
 ) {
     val bridge = WebRtcBridge()
     val networkAdapter = NetworkAdapter(bridge)
+    val networkPort = if (fakeLag > 0) FakeLagInputPort(networkAdapter, fakeLag) else networkAdapter
     val signalingClient = SignalingClient(SIGNALING_URL, bridge)
 
     // Listeners ASSEMBLE!!!
@@ -126,16 +143,16 @@ private suspend fun onGameStart(
     val timeManager = TimeManager(targetFPS = 60)
     val characters: CharacterRepository = JsonCharacterRepository()
     val engine = GameEngine(createWorld(characters))
-    println("Connected to signaling server. isHost=$isHost")
+    log.info { "Connected to signaling server. isHost=$isHost" }
 
     if (isHost) bridge.createOffer()
 
     // Wait for the P2P data channel to open
-    println("Waiting for peer to connect...")
+    log.info { "Waiting for peer to connect..." }
     while (!networkAdapter.isConnected()) {
         delay(POLL_INTERVAL_MS)
     }
-    println("Peer connected! Starting game.")
+    log.info { "Peer connected! Starting game." }
 
     val loop =
         GameLoop(
@@ -143,7 +160,7 @@ private suspend fun onGameStart(
             inputPort = composeAdapter,
             renderPort = composeAdapter,
             timeManager = timeManager,
-            networkPort = networkAdapter,
+            networkPort = networkPort,
             isHost = isHost,
         )
 

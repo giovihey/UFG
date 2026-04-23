@@ -1,5 +1,6 @@
 package com.heyteam.ufg.application.service
 
+import com.heyteam.ufg.application.port.input.FramedInput
 import com.heyteam.ufg.application.port.input.NetworkInputPort
 import com.heyteam.ufg.application.port.output.NetworkOutputPort
 import com.heyteam.ufg.domain.component.InputState
@@ -22,6 +23,11 @@ import com.heyteam.ufg.domain.entity.World
  * [InputState], etc.) is an immutable data class, "snapshotting" is free: we just keep the
  * prior [World] reference. Restoring is equally free.
  *
+ * Observability is handled by a pluggable [RollbackListener]. The default
+ * [NoopRollbackListener] is silent; wire in [NetcodeEventLogger] / [NetcodeStatsLogger]
+ * (or both via [CompositeRollbackListener]) to surface rewind events and per-second
+ * summaries.
+ *
  * @param localPlayerId  the player ID controlled by this client (1 or 2).
  * @param remotePlayerId the player ID controlled by the peer.
  * @param inputDelay     frames of local input delay (GGPO-style). Hides jitter up to this
@@ -37,6 +43,7 @@ data class RollbackConfig(
     val sendWindow: Int = RollbackService.DEFAULT_SEND_WINDOW,
 )
 
+@Suppress("LongParameterList")
 class RollbackService(
     private val engine: GameEngine,
     private val networkInput: NetworkInputPort,
@@ -44,6 +51,7 @@ class RollbackService(
     private val localPlayerId: Int,
     private val remotePlayerId: Int,
     config: RollbackConfig = RollbackConfig(),
+    private val listener: RollbackListener = NoopRollbackListener,
 ) {
     private val inputDelay: Int = config.inputDelay
     private val maxRollbackFrames: Int = config.maxRollbackFrames
@@ -80,7 +88,7 @@ class RollbackService(
         val currentFrame = engine.getWorld().frameNumber
 
         // 1. Schedule local input. Apply INPUT_DELAY frames of intentional buffering so the
-        //    peer usually has it before we need it — this is what hides jitter without any
+        //    peer usually has it before we need it -> this is what hides jitter without any
         //    rollback happening at all.
         val scheduledFrame = currentFrame + inputDelay
         localInputs[scheduledFrame] = localInput
@@ -103,56 +111,103 @@ class RollbackService(
         // 6. Compact old state we can no longer roll back into.
         compact(currentFrame)
 
+        // 7. Notify observers that a frame completed.
+        listener.onFrameAdvanced(currentFrame + 1)
+
         return engine.getWorld()
     }
 
     // --- internals -----------------------------------------------------------------------
 
+    private data class Misprediction(
+        val frame: Long,
+        val predicted: InputState,
+        val actual: InputState,
+    )
+
     private fun processIncomingRemote(currentFrame: Long) {
         val drained = networkInput.drainRemoteInputs()
         if (drained.isEmpty()) return
 
-        // Track the earliest frame at which a mispredicted authoritative input forces us to
-        // rewind. We rewind once, to the smallest such frame.
-        var rewindTo: Long = Long.MAX_VALUE
-
-        for (framed in drained) {
-            val frame = framed.frameNumber
-            val input = framed.input
-
-            // Dedupe: the peer resends each input multiple times in the redundant window.
-            val prior = remoteAuthoritative[frame]
-            if (prior != null && prior == input) continue
-            remoteAuthoritative[frame] = input
-
-            if (frame > lastRemoteAuthFrame) lastRemoteAuthFrame = frame
-
-            // If this input is for a frame we already simulated using a prediction,
-            // and the prediction was wrong, schedule a rewind.
-            if (frame < currentFrame) {
-                val predicted = predictedRemote[frame]
-                if (predicted != null && predicted != input && frame < rewindTo) {
-                    rewindTo = frame
-                }
-            }
-        }
-
-        if (rewindTo != Long.MAX_VALUE) {
-            resimulateFrom(rewindTo, currentFrame)
-        }
+        val earliest = ingestRemoteInputs(drained, currentFrame)
+        if (earliest != null) applyRewind(earliest, currentFrame)
     }
 
+    /**
+     * Absorb a batch of authoritative remote inputs, dedupe, notify the listener about
+     * each prediction evaluation, and return the earliest misprediction that forces a
+     * rewind (if any).
+     */
+    private fun ingestRemoteInputs(
+        drained: List<FramedInput>,
+        currentFrame: Long,
+    ): Misprediction? {
+        var earliest: Misprediction? = null
+        for (framed in drained) {
+            val miss = absorbFramed(framed, currentFrame)
+            if (miss != null && (earliest == null || miss.frame < earliest.frame)) {
+                earliest = miss
+            }
+        }
+        return earliest
+    }
+
+    /**
+     * Handle a single inbound [FramedInput]: dedupe, record authoritative entry, notify
+     * prediction-hit observer, and return a [Misprediction] if this input invalidates an
+     * earlier predicted frame.
+     */
+    @Suppress("ReturnCount")
+    private fun absorbFramed(
+        framed: FramedInput,
+        currentFrame: Long,
+    ): Misprediction? {
+        val frame = framed.frameNumber
+        val input = framed.input
+
+        val prior = remoteAuthoritative[frame]
+        if (prior != null && prior == input) return null
+        remoteAuthoritative[frame] = input
+        if (frame > lastRemoteAuthFrame) lastRemoteAuthFrame = frame
+
+        if (frame >= currentFrame) return null
+        val predicted = predictedRemote[frame] ?: return null
+        listener.onPredictionEvaluated(hit = predicted == input)
+        return if (predicted != input) Misprediction(frame, predicted, input) else null
+    }
+
+    private fun applyRewind(
+        miss: Misprediction,
+        currentFrame: Long,
+    ) {
+        val effectiveFrom = resimulateFrom(miss.frame, currentFrame)
+        if (effectiveFrom < 0) return
+        listener.onRollback(
+            RollbackEvent(
+                currentFrame = currentFrame,
+                mispredictionFrame = miss.frame,
+                effectiveFromFrame = effectiveFrom,
+                rewindFrames = (currentFrame - effectiveFrom).toInt(),
+                authLag = (currentFrame - miss.frame).toInt(),
+                predicted = miss.predicted,
+                actual = miss.actual,
+            ),
+        )
+    }
+
+    /**
+     * Rewind to [fromFrame] (clamped by [maxRollbackFrames]) and replay up to but not
+     * including [currentFrame]. Returns the frame we actually restored from, or -1 if no
+     * snapshot was available.
+     */
     private fun resimulateFrom(
         fromFrame: Long,
         currentFrame: Long,
-    ) {
-        // Cap the rewind distance. Beyond this, the game has genuinely diverged and the
-        // only correct recourse is a resync (not implemented: we clamp and accept visual
-        // pop, which is standard practice in fighters).
+    ): Long {
         val oldest = (currentFrame - maxRollbackFrames).coerceAtLeast(0L)
         val effectiveFrom = fromFrame.coerceAtLeast(oldest)
 
-        val snapshot = worldBeforeFrame[effectiveFrom] ?: return
+        val snapshot = worldBeforeFrame[effectiveFrom] ?: return -1L
         engine.setWorld(snapshot)
 
         var f = effectiveFrom
@@ -164,6 +219,7 @@ class RollbackService(
             engine.step(buildInputs(local, remote))
             f++
         }
+        return effectiveFrom
     }
 
     private fun remoteForFrame(frame: Long): InputState {
