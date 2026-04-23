@@ -1,6 +1,7 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CompletableDeferred
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.json.JSONObject
@@ -16,6 +17,11 @@ class SignalingClient(
     private lateinit var ws: WebSocketClient
     private var descriptionSent = false
 
+    // Start-frame handshake primitives. Completed exactly once when the peer signals
+    // readiness / a start-at timestamp. Consumers await them via the suspend accessors.
+    private val peerReady = CompletableDeferred<Unit>()
+    private val startAt = CompletableDeferred<Long>()
+
     fun connect() {
         ws =
             object : WebSocketClient(URI(serverUrl)) {
@@ -29,6 +35,8 @@ class SignalingClient(
                     when (json.getString("type")) {
                         "sdp" -> bridge.setRemoteDescription(json.getString("sdp"))
                         "ice" -> bridge.addIceCandidate(json.getString("candidate"), json.getString("mid"))
+                        "ready" -> peerReady.complete(Unit)
+                        "start" -> startAt.complete(json.getLong("at"))
                     }
                 }
 
@@ -78,4 +86,31 @@ class SignalingClient(
             log.warn { "Cannot send local candidate, signaling WebSocket is not open" }
         }
     }
+
+    /** Tell the peer we are ready to start the match. Idempotent on retry. */
+    fun sendReady() {
+        if (!ws.isOpen) {
+            log.warn { "Cannot send ready, signaling WebSocket is not open" }
+            return
+        }
+        ws.send(JSONObject().put("type", "ready").toString())
+    }
+
+    /**
+     * Tell the peer to begin the simulation at wall-clock [atEpochMs]. Only the host
+     * should call this. Guest learns the value by awaiting [awaitStartAt].
+     */
+    fun sendStart(atEpochMs: Long) {
+        if (!ws.isOpen) {
+            log.warn { "Cannot send start, signaling WebSocket is not open" }
+            return
+        }
+        ws.send(JSONObject().put("type", "start").put("at", atEpochMs).toString())
+    }
+
+    /** Suspends until the peer has sent `ready`. */
+    suspend fun awaitPeerReady() = peerReady.await()
+
+    /** Suspends until the peer has sent `start`, returning the agreed start epoch ms. */
+    suspend fun awaitStartAt(): Long = startAt.await()
 }

@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val log = KotlinLogging.logger {}
 
@@ -40,6 +41,15 @@ const val P2_CHARACTER_ID = 3 // heavy
 const val SIGNALING_CONNECT_TIMEOUT_MS = 250L
 const val SIGNALING_CONNECT_MAX_ATTEMPTS = 20
 const val TARGET_FPS = 60
+
+// Handshake parameters. After both peers exchange "ready" the host picks a common
+// start epoch: now + START_BUFFER_MS. The buffer has to comfortably exceed one
+// signaling round-trip plus JVM jitter so both peers reach the wait before `at`.
+const val START_BUFFER_MS = 500L
+
+// Bound the wait for the peer to send "ready" / "start". If the peer never shows up
+// (crashed, network dropped) we surface a clean error instead of hanging forever.
+const val HANDSHAKE_TIMEOUT_MS = 5_000L
 
 // ── Service URLs ──────────────────────────────────────────────────────────
 // auth-service is mapped to 8081 in docker-compose.yml (ports: "8081:8080")
@@ -140,9 +150,6 @@ private suspend fun onGameStart(
         return
     }
 
-    val timeManager = TimeManager(targetFPS = 60)
-    val characters: CharacterRepository = JsonCharacterRepository()
-    val engine = GameEngine(createWorld(characters))
     log.info { "Connected to signaling server. isHost=$isHost" }
 
     if (isHost) bridge.createOffer()
@@ -152,7 +159,25 @@ private suspend fun onGameStart(
     while (!networkAdapter.isConnected()) {
         delay(POLL_INTERVAL_MS)
     }
-    log.info { "Peer connected! Starting game." }
+    log.info { "Peer connected. Running start-frame handshake..." }
+
+    // Start-frame handshake. Without this, peers start simulating the moment their own
+    // data channel reports open — with variable DTLS-setup latency the lagging peer can
+    // be 10+ frames behind, exceeding maxRollbackFrames and producing permanent desync.
+    // We pin both peers to the same wall-clock start epoch via signaling.
+    val startAt =
+        runHandshake(signalingClient, isHost) ?: return run {
+            composeAdapter.showError("Peer did not respond to start handshake.")
+            networkAdapter.close()
+        }
+    val sleepMs = (startAt - System.currentTimeMillis()).coerceAtLeast(0L)
+    if (sleepMs > 0) delay(sleepMs)
+
+    // Everything below this point runs at the agreed start epoch on both peers.
+    val timeManager = TimeManager(targetFPS = TARGET_FPS)
+    val characters: CharacterRepository = JsonCharacterRepository()
+    val engine = GameEngine(createWorld(characters))
+    log.info { "Starting game loop at epoch=$startAt" }
 
     val loop =
         GameLoop(
@@ -173,6 +198,38 @@ private suspend fun onGameStart(
 
     // Switch to Game screen only once the loop is running
     composeAdapter.navigate(Screen.Game)
+}
+
+/**
+ * Three-step protocol run over the signaling WebSocket once the data channel is open:
+ *  1. Both peers send `ready`.
+ *  2. Both peers wait for the peer's `ready`.
+ *  3. Host picks `at = now + START_BUFFER_MS` and broadcasts `start`. Guest awaits it.
+ *
+ * Returns the agreed epoch ms, or `null` if the peer did not complete the handshake
+ * within [HANDSHAKE_TIMEOUT_MS].
+ */
+private suspend fun runHandshake(
+    signalingClient: SignalingClient,
+    isHost: Boolean,
+): Long? {
+    signalingClient.sendReady()
+    val peerReady = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { signalingClient.awaitPeerReady() }
+    if (peerReady == null) {
+        log.warn { "Handshake timeout: peer never sent 'ready'" }
+        return null
+    }
+    return if (isHost) {
+        val at = System.currentTimeMillis() + START_BUFFER_MS
+        signalingClient.sendStart(at)
+        at
+    } else {
+        withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { signalingClient.awaitStartAt() }
+            ?: run {
+                log.warn { "Handshake timeout: host never sent 'start'" }
+                null
+            }
+    }
 }
 
 fun createWorld(characters: CharacterRepository): World {
