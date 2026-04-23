@@ -1,5 +1,9 @@
 package com.heyteam.ufg.infrastructure.adapter.network
 
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val log = KotlinLogging.logger {}
+
 @Suppress("TooManyFunctions")
 class WebRtcBridge : PeerConnectionBridge {
     companion object {
@@ -13,7 +17,7 @@ class WebRtcBridge : PeerConnectionBridge {
 
     // called from C++ when local SDP is ready
     fun onLocalDescription(sdp: String) {
-        println("C++ fired onLocalDescription")
+        log.debug { "C++ fired onLocalDescription" }
         signalingListener?.onLocalDescription(sdp)
     }
 
@@ -21,17 +25,17 @@ class WebRtcBridge : PeerConnectionBridge {
         candidate: String,
         mid: String,
     ) {
-        println("C++ fired onLocalCandidate")
+        log.debug { "C++ fired onLocalCandidate" }
         signalingListener?.onLocalCandidate(candidate, mid)
     }
 
     fun onDataChannelOpen() {
-        println("C++ fired onDataChannelOpen")
+        log.debug { "C++ fired onDataChannelOpen" }
         dataChannelListener?.onDataChannelOpen()
     }
 
     fun onDataChannelClose() {
-        println("C++ fired onDataChannelClose")
+        log.debug { "C++ fired onDataChannelClose" }
         dataChannelListener?.onDataChannelClose()
     }
 

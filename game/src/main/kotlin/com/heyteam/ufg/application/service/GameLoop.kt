@@ -5,6 +5,9 @@ import com.heyteam.ufg.application.port.input.KeyboardInputPort
 import com.heyteam.ufg.application.port.output.RenderPort
 import com.heyteam.ufg.domain.component.GameStatus
 import com.heyteam.ufg.domain.component.InputState
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val log = KotlinLogging.logger {}
 
 class GameLoop(
     private var gameEngine: GameEngine,
@@ -21,6 +24,7 @@ class GameLoop(
 
     // Rollback lives in the application layer and owns input prediction, snapshot ring,
     // and the rewind-and-replay state machine. GameLoop just paces and routes IO.
+    // Observability is injected as a listener so the service itself stays pure.
     private val rollback =
         RollbackService(
             engine = gameEngine,
@@ -28,6 +32,10 @@ class GameLoop(
             networkOutput = networkPort,
             localPlayerId = localPlayerId,
             remotePlayerId = remotePlayerId,
+            listener =
+                CompositeRollbackListener(
+                    listOf(NetcodeEventLogger(), NetcodeStatsLogger()),
+                ),
         )
 
     fun stop() {
@@ -54,7 +62,7 @@ class GameLoop(
             renderPort.render(gameEngine.getWorld())
             if (gameEngine.getWorld().gameStatus == GameStatus.ROUND_END) {
                 isRunning = false
-                println("Match is over")
+                log.info { "Match is over" }
                 renderPort.shutdown()
             }
         }
@@ -62,7 +70,7 @@ class GameLoop(
 
     private fun processFrame(): Boolean {
         if (!networkPort.isConnected()) {
-            println("Stopping game loop (peer disconnected)")
+            log.warn { "Stopping game loop (peer disconnected)" }
             return false
         }
         val localInput: InputState = inputPort.pollInputState(localPlayerId)

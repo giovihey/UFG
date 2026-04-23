@@ -3,8 +3,11 @@ package com.heyteam.ufg.infrastructure.adapter.network
 import com.heyteam.ufg.application.port.NetworkPort
 import com.heyteam.ufg.application.port.input.FramedInput
 import com.heyteam.ufg.domain.component.InputState
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
+
+private val log = KotlinLogging.logger {}
 
 class NetworkAdapter(
     private val bridge: PeerConnectionBridge,
@@ -68,7 +71,7 @@ class NetworkAdapter(
     }
 
     override fun onDataChannelClose() {
-        println("Peer disconnected. Closing game.")
+        log.warn { "Peer disconnected. Closing game." }
         connected = false
     }
 

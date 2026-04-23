@@ -31,6 +31,8 @@ dependencies {
     val javaWebSocketVersion = "1.5.6"
     val jsonJavaVersion = "20251224"
     val slf4jVersion = "2.0.13"
+    val logbackVersion = "1.5.13"
+    val kotlinLoggingVersion = "7.0.0"
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
@@ -39,7 +41,9 @@ dependencies {
     testImplementation("io.mockk:mockk:$mockkVersion")
     implementation("org.java-websocket:Java-WebSocket:$javaWebSocketVersion")
     implementation("org.json:json:$jsonJavaVersion")
-    implementation("org.slf4j:slf4j-simple:$slf4jVersion")
+    implementation("org.slf4j:slf4j-api:$slf4jVersion")
+    implementation("ch.qos.logback:logback-classic:$logbackVersion")
+    implementation("io.github.oshai:kotlin-logging-jvm:$kotlinLoggingVersion")
     implementation(compose.desktop.currentOs)
 }
 

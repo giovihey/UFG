@@ -12,6 +12,7 @@ A **peer-to-peer 2D fighting game** built with Kotlin, Compose Desktop, and WebR
 | **Architecture** | Hexagonal Architecture — layers, ports, adapters, data flow |
 | **Networking** | WebRTC P2P layer — signaling, ICE, data channels |
 | **Rollback** | Rollback netcode — prediction, rewind-and-replay, determinism |
+| **Logging** | SLF4J + Logback setup, netcode event/summary streams, `--fake-lag` flag |
 | **Implementation** | Tech stack, protocols, frame data, and build toolchain |
 | **Validation** | Testing strategy and coverage |
 | **Deployment** | How to build and run |
