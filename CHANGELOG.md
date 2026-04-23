@@ -1,3 +1,9 @@
+## [3.7.1](https://github.com/giovihey/UFG/compare/v3.7.0...v3.7.1) (2026-04-23)
+
+### Bug Fixes
+
+* a better loggin helps people ([dc728bf](https://github.com/giovihey/UFG/commit/dc728bf01ddb68df6e518c843a3ef859ba34482b))
+
 ## [3.7.0](https://github.com/giovihey/UFG/compare/v3.6.0...v3.7.0) (2026-04-22)
 
 ### Features
