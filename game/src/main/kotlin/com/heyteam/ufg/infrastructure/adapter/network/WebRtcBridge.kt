@@ -42,8 +42,17 @@ class WebRtcBridge : PeerConnectionBridge {
     fun onRemoteInput(
         inputMask: Int,
         frameNumber: Long,
+        senderCurrentFrame: Long,
+        committedFrame: Long,
+        committedHash: Long,
     ) {
-        dataChannelListener?.onRemoteInput(inputMask, frameNumber)
+        dataChannelListener?.onRemoteInput(
+            inputMask,
+            frameNumber,
+            senderCurrentFrame,
+            committedFrame,
+            committedHash,
+        )
     }
 
     // These match the C++ functions exactly
@@ -58,9 +67,15 @@ class WebRtcBridge : PeerConnectionBridge {
         mid: String,
     )
 
+    // Wire format documented in PeerConnectionBridge.sendInput. The native side must pack
+    // and unpack 36 bytes — any mismatch with this signature scrambles frame numbers and
+    // causes immediate desync.
     external override fun sendInput(
         inputMask: Int,
         frameNumber: Long,
+        senderCurrentFrame: Long,
+        committedFrame: Long,
+        committedHash: Long,
     )
 
     external override fun close()

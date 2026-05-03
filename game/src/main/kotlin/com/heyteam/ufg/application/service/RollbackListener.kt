@@ -31,6 +31,23 @@ data class RollbackEvent(
 }
 
 /**
+ * Fired when a peer-reported committed-frame hash disagrees with ours for the same frame.
+ * The two simulations have diverged, which means either:
+ *  - a determinism bug somewhere in `domain/` (most likely),
+ *  - or a clamped correction snuck through despite time-sync stalling,
+ *  - or game data on the two clients differs (e.g. JSON character files).
+ *
+ * The listener is the only signal — there is currently no automatic recovery; a real
+ * shipping title would force a resync via authoritative state retransmission.
+ */
+data class DesyncEvent(
+    val currentFrame: Long,
+    val desyncFrame: Long,
+    val localHash: Long,
+    val peerHash: Long,
+)
+
+/**
  * Observer hook for [RollbackService]. Implementations can log, record metrics, drive a
  * replay viewer, etc. All methods default to no-ops so listeners only need to override the
  * events they care about. Listeners are invoked synchronously on the game-loop thread and
@@ -45,6 +62,23 @@ interface RollbackListener {
 
     /** Called at the end of every simulated frame; useful for periodic flushes. */
     fun onFrameAdvanced(currentFrame: Long) {}
+
+    /**
+     * Called when a tick was skipped because we are running ahead of the peer. [advantage]
+     * is `currentFrame - peerFrame` at the moment of the stall. Stalling is how we keep the
+     * gap from exceeding [RollbackConfig.maxRollbackFrames] and silently dropping
+     * authoritative corrections.
+     */
+    fun onStall(
+        currentFrame: Long,
+        advantage: Int,
+    ) {}
+
+    /**
+     * Called when our committed-frame hash for some past frame disagrees with the peer's
+     * hash for the same frame. Indicates a confirmed cross-machine desync.
+     */
+    fun onDesync(event: DesyncEvent) {}
 }
 
 /** A [RollbackListener] that does nothing. Default for [RollbackService]. */
@@ -64,5 +98,16 @@ class CompositeRollbackListener(
 
     override fun onFrameAdvanced(currentFrame: Long) {
         for (l in listeners) l.onFrameAdvanced(currentFrame)
+    }
+
+    override fun onStall(
+        currentFrame: Long,
+        advantage: Int,
+    ) {
+        for (l in listeners) l.onStall(currentFrame, advantage)
+    }
+
+    override fun onDesync(event: DesyncEvent) {
+        for (l in listeners) l.onDesync(event)
     }
 }

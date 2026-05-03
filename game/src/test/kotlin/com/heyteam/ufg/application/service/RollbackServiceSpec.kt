@@ -2,6 +2,7 @@ package com.heyteam.ufg.application.service
 
 import com.heyteam.ufg.application.port.input.FramedInput
 import com.heyteam.ufg.application.port.input.NetworkInputPort
+import com.heyteam.ufg.application.port.input.RemoteCommittedHash
 import com.heyteam.ufg.application.port.output.NetworkOutputPort
 import com.heyteam.ufg.domain.component.Direction
 import com.heyteam.ufg.domain.component.GameButton
@@ -18,6 +19,7 @@ import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.domain.system.GameLogic
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 
 /**
  * Correctness property: regardless of how much the authoritative remote input is delayed
@@ -110,6 +112,9 @@ class RollbackServiceSpec :
             override fun sendInput(
                 inputState: InputState,
                 frameNumber: Long,
+                senderCurrentFrame: Long,
+                committedFrame: Long,
+                committedHash: Long,
             ) { /* local echo — not used by this fake */ }
 
             fun advance() {
@@ -163,6 +168,190 @@ class RollbackServiceSpec :
             rb.players[2]!!.position shouldBe ref.players[2]!!.position
             rb.players[1]!!.health shouldBe ref.players[1]!!.health
             rb.players[2]!!.health shouldBe ref.players[2]!!.health
+        }
+
+        "stalls when running ahead of the peer beyond syncThreshold" {
+            // Fake transport with a manually-driven peerFrame. Initially peerFrame is far
+            // behind, so every tick should stall until the peer "catches up".
+            class StalledRemote :
+                NetworkInputPort,
+                NetworkOutputPort {
+                var reportedPeerFrame: Long = 0L
+
+                override fun pollRemoteInput(frameNumber: Long): InputState? = null
+
+                override fun drainRemoteInputs(): List<FramedInput> = emptyList()
+
+                override fun peerFrame(): Long = reportedPeerFrame
+
+                override fun sendInput(
+                    inputState: InputState,
+                    frameNumber: Long,
+                    senderCurrentFrame: Long,
+                    committedFrame: Long,
+                    committedHash: Long,
+                ) { /* unused */ }
+            }
+
+            class StallCounter : RollbackListener {
+                var stalls = 0
+
+                override fun onStall(
+                    currentFrame: Long,
+                    advantage: Int,
+                ) {
+                    stalls++
+                }
+            }
+
+            val transport = StalledRemote()
+            val counter = StallCounter()
+            val engine = GameEngine(seedWorld())
+            val service =
+                RollbackService(
+                    engine = engine,
+                    networkInput = transport,
+                    networkOutput = transport,
+                    localPlayerId = 1,
+                    remotePlayerId = 2,
+                    config = RollbackConfig(inputDelay = 2, syncThreshold = 2, maxRollbackFrames = 8),
+                    listener = counter,
+                )
+
+            // Run 5 ticks ahead of the peer (peer stuck at frame 0).
+            // First two ticks: advantage 0, 1 — no stall, frame advances to 2.
+            // From advantage 3 onward we should stall.
+            repeat(5) { service.tick(InputState.NONE) }
+
+            // currentFrame should be at most syncThreshold + 1 (the last non-stalled tick).
+            engine.getWorld().frameNumber shouldBe 3L
+            // Three of the five ticks should have been stalls.
+            counter.stalls shouldBe 2
+        }
+
+        "advantage stays bounded when peer is consistently behind" {
+            // Simulate a peer running 5 frames behind (constant gap). Without stall logic,
+            // advantage would grow unbounded with each local tick. With stall logic enabled
+            // (syncThreshold=2), the gap must converge to roughly syncThreshold + 1.
+            class TrailingRemote(
+                private val gap: Int,
+            ) : NetworkInputPort,
+                NetworkOutputPort {
+                var localFrameHint: Long = 0L
+
+                override fun pollRemoteInput(frameNumber: Long): InputState? = null
+
+                override fun drainRemoteInputs(): List<FramedInput> = emptyList()
+
+                // Peer reports a frame that's `gap` behind whatever the local sim is at.
+                override fun peerFrame(): Long = (localFrameHint - gap).coerceAtLeast(0L)
+
+                override fun sendInput(
+                    inputState: InputState,
+                    frameNumber: Long,
+                    senderCurrentFrame: Long,
+                    committedFrame: Long,
+                    committedHash: Long,
+                ) {
+                    localFrameHint = senderCurrentFrame
+                }
+            }
+
+            val transport = TrailingRemote(gap = 5)
+            val engine = GameEngine(seedWorld())
+            val service =
+                RollbackService(
+                    engine = engine,
+                    networkInput = transport,
+                    networkOutput = transport,
+                    localPlayerId = 1,
+                    remotePlayerId = 2,
+                    config = RollbackConfig(inputDelay = 2, syncThreshold = 2, maxRollbackFrames = 8),
+                )
+
+            repeat(200) { service.tick(InputState.NONE) }
+
+            // Local sim must not have raced past peer + (syncThreshold + 1). The +1 is the
+            // boundary tick where advantage equals syncThreshold and we still advance.
+            val finalGap = engine.getWorld().frameNumber - transport.peerFrame()
+            (finalGap <= 3L) shouldBe true
+        }
+
+        "fires onDesync when peer's committed-frame hash disagrees with ours" {
+            class HashableTransport :
+                NetworkInputPort,
+                NetworkOutputPort {
+                val pendingPeerHashes = ArrayDeque<RemoteCommittedHash>()
+                val sentCommitted = mutableListOf<Pair<Long, Long>>()
+
+                override fun pollRemoteInput(frameNumber: Long): InputState? = null
+
+                override fun drainRemoteInputs(): List<FramedInput> = emptyList()
+
+                override fun drainRemoteCommittedHashes(): List<RemoteCommittedHash> {
+                    val out = pendingPeerHashes.toList()
+                    pendingPeerHashes.clear()
+                    return out
+                }
+
+                override fun sendInput(
+                    inputState: InputState,
+                    frameNumber: Long,
+                    senderCurrentFrame: Long,
+                    committedFrame: Long,
+                    committedHash: Long,
+                ) {
+                    if (committedFrame != Long.MIN_VALUE) {
+                        sentCommitted.add(committedFrame to committedHash)
+                    }
+                }
+            }
+
+            class DesyncRecorder : RollbackListener {
+                val events = mutableListOf<DesyncEvent>()
+
+                override fun onDesync(event: DesyncEvent) {
+                    events.add(event)
+                }
+            }
+
+            val transport = HashableTransport()
+            val recorder = DesyncRecorder()
+            val engine = GameEngine(seedWorld())
+            val service =
+                RollbackService(
+                    engine = engine,
+                    networkInput = transport,
+                    networkOutput = transport,
+                    localPlayerId = 1,
+                    remotePlayerId = 2,
+                    listener = recorder,
+                )
+
+            // Run enough frames to commit a hash (default maxRollbackFrames = 8).
+            repeat(15) { service.tick(InputState.NONE) }
+
+            // We should have sent some committed hashes by now via the broadcast path.
+            val firstCommitted = transport.sentCommitted.firstOrNull()
+            firstCommitted shouldNotBe null
+            val (committedFrame, localCommittedHash) = firstCommitted!!
+
+            // Inject a peer hash for the same frame that disagrees by one bit.
+            val fakePeerHash = localCommittedHash xor 1L
+            transport.pendingPeerHashes.addLast(RemoteCommittedHash(committedFrame, fakePeerHash))
+            service.tick(InputState.NONE)
+
+            recorder.events.size shouldBe 1
+            val ev = recorder.events.first()
+            ev.desyncFrame shouldBe committedFrame
+            ev.localHash shouldBe localCommittedHash
+            ev.peerHash shouldBe fakePeerHash
+
+            // Now inject a matching hash for a later committed frame — should NOT fire.
+            val (lf, lh) = transport.sentCommitted.last()
+            transport.pendingPeerHashes.addLast(RemoteCommittedHash(lf, lh))
+            service.tick(InputState.NONE)
+            recorder.events.size shouldBe 1
         }
 
         "delayed authoritative input still converges to reference state" {

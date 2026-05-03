@@ -31,10 +31,20 @@ class NetcodeEventLogger : RollbackListener {
         }
     }
 
+    override fun onDesync(event: DesyncEvent) {
+        netcodeLog.error {
+            "[DESYNC] at frame=${event.desyncFrame} (currentFrame=${event.currentFrame}) " +
+                "local=0x${event.localHash.toString(HEX_RADIX)} " +
+                "peer=0x${event.peerHash.toString(HEX_RADIX)} — " +
+                "simulations have diverged; check determinism / game-data parity"
+        }
+    }
+
     private fun elapsedSeconds(): Double = (System.nanoTime() - startNanos) / NANOS_PER_SECOND
 
     companion object {
         private const val NANOS_PER_SECOND = 1_000_000_000.0
+        private const val HEX_RADIX = 16
 
         private const val ROLLBACK_LINE_FMT =
             "[RB] t=%.2fs frame=%d rewind=%df misprediction_frame=%d " +

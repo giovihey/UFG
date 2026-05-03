@@ -100,17 +100,24 @@ JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRt
             JNIEnv *env;
             jvm->AttachCurrentThread((void **) &env, nullptr);
 
-            // 2. Unpack the bytes (reverse of sendInput)
+            // 2. Unpack the bytes (reverse of sendInput): 4 + 8 + 8 + 8 + 8 = 36 bytes.
             auto data = std::get<rtc::binary>(message);
             int32_t inputMask;
             int64_t frameNumber;
+            int64_t senderCurrentFrame;
+            int64_t committedFrame;
+            int64_t committedHash;
             memcpy(&inputMask, data.data(), 4);
             memcpy(&frameNumber, data.data() + 4, 8);
+            memcpy(&senderCurrentFrame, data.data() + 12, 8);
+            memcpy(&committedFrame, data.data() + 20, 8);
+            memcpy(&committedHash, data.data() + 28, 8);
 
-            // 3. Call WebRtcBridge.onRemoteInput(inputMask, frameNumber)
+            // 3. Call WebRtcBridge.onRemoteInput(I, J, J, J, J)V
             jclass cls = env->GetObjectClass(callbackObj);
-            jmethodID mid = env->GetMethodID(cls, "onRemoteInput", "(IJ)V");
-            env->CallVoidMethod(callbackObj, mid, inputMask, frameNumber);
+            jmethodID mid = env->GetMethodID(cls, "onRemoteInput", "(IJJJJ)V");
+            env->CallVoidMethod(callbackObj, mid, inputMask, frameNumber, senderCurrentFrame,
+                                committedFrame, committedHash);
 
             jvm->DetachCurrentThread();
         });
@@ -151,15 +158,25 @@ JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRt
 JNIEXPORT void JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_sendInput(JNIEnv *env,
                                                                                                   jobject obj,
                                                                                                   jint inputMask,
-                                                                                                  jlong frameNumber) {
+                                                                                                  jlong frameNumber,
+                                                                                                  jlong senderCurrentFrame,
+                                                                                                  jlong committedFrame,
+                                                                                                  jlong committedHash) {
     if (dataChannel && dataChannel->isOpen()) {
-        // Pack input into bytes: 4 bytes for input + 8 bytes for frame number
-        // This is what goes over the wire every frame
-        uint8_t buffer[12];
+        // Wire format (36 bytes):
+        //   off 0  | 4 | inputMask           (int32)
+        //   off 4  | 8 | frameNumber         (int64)
+        //   off 12 | 8 | senderCurrentFrame  (int64) — for time-sync stalling
+        //   off 20 | 8 | committedFrame      (int64) — LLONG_MIN = no hash piggyback
+        //   off 28 | 8 | committedHash       (int64) — canonical WorldHash for desync detection
+        uint8_t buffer[36];
         memcpy(buffer, &inputMask, 4);
         memcpy(buffer + 4, &frameNumber, 8);
+        memcpy(buffer + 12, &senderCurrentFrame, 8);
+        memcpy(buffer + 20, &committedFrame, 8);
+        memcpy(buffer + 28, &committedHash, 8);
 
-        dataChannel->send(reinterpret_cast<std::byte *>(buffer), 12);
+        dataChannel->send(reinterpret_cast<std::byte *>(buffer), 36);
     }
 }
 
@@ -201,20 +218,26 @@ JNIEXPORT jstring JNICALL Java_com_heyteam_ufg_infrastructure_adapter_network_We
     });
 
     dataChannel->onMessage([](auto message) {
-        // Same onMessage handler you already have —
-        // unpack inputMask + frameNumber and call onRemoteInput
+        // Same onMessage handler as the onDataChannel branch — 36-byte wire format.
         JNIEnv *env;
         jvm->AttachCurrentThread((void **) &env, nullptr);
 
         auto data = std::get<rtc::binary>(message);
         int32_t inputMask;
         int64_t frameNumber;
+        int64_t senderCurrentFrame;
+        int64_t committedFrame;
+        int64_t committedHash;
         memcpy(&inputMask, data.data(), 4);
         memcpy(&frameNumber, data.data() + 4, 8);
+        memcpy(&senderCurrentFrame, data.data() + 12, 8);
+        memcpy(&committedFrame, data.data() + 20, 8);
+        memcpy(&committedHash, data.data() + 28, 8);
 
         jclass cls = env->GetObjectClass(callbackObj);
-        jmethodID mid = env->GetMethodID(cls, "onRemoteInput", "(IJ)V");
-        env->CallVoidMethod(callbackObj, mid, inputMask, frameNumber);
+        jmethodID mid = env->GetMethodID(cls, "onRemoteInput", "(IJJJJ)V");
+        env->CallVoidMethod(callbackObj, mid, inputMask, frameNumber, senderCurrentFrame,
+                            committedFrame, committedHash);
 
         jvm->DetachCurrentThread();
     });

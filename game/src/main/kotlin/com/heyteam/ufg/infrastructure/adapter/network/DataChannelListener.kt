@@ -4,6 +4,9 @@ interface DataChannelListener {
     fun onRemoteInput(
         inputMask: Int,
         frameNumber: Long,
+        senderCurrentFrame: Long,
+        committedFrame: Long,
+        committedHash: Long,
     )
 
     fun onDataChannelOpen()

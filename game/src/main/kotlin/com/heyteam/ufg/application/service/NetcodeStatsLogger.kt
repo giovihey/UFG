@@ -15,6 +15,8 @@ class NetcodeStatsLogger : RollbackListener {
     private var predictionHits = 0
     private var predictionEvals = 0
     private val authLags = ArrayDeque<Int>()
+    private var stallsInWindow = 0
+    private var maxAdvantage = 0
     private var lastFlushNanos = System.nanoTime()
 
     override fun onPredictionEvaluated(hit: Boolean) {
@@ -27,23 +29,42 @@ class NetcodeStatsLogger : RollbackListener {
         authLags.addLast(event.authLag)
     }
 
+    override fun onStall(
+        currentFrame: Long,
+        advantage: Int,
+    ) {
+        stallsInWindow++
+        if (advantage > maxAdvantage) maxAdvantage = advantage
+    }
+
     override fun onFrameAdvanced(currentFrame: Long) {
         val now = System.nanoTime()
         val elapsedNanos = now - lastFlushNanos
         if (elapsedNanos < NANOS_PER_SECOND.toLong()) return
         val elapsedSec = elapsedNanos / NANOS_PER_SECOND
         val rbPerSec = rollbacksInWindow / elapsedSec
+        val stallsPerSec = stallsInWindow / elapsedSec
         val predictedPct =
             if (predictionEvals == 0) PERCENT_SCALE else (PERCENT_SCALE * predictionHits / predictionEvals)
         val lagAvg = if (authLags.isEmpty()) 0.0 else authLags.average()
         val lagMax = authLags.maxOrNull() ?: 0
         netcodeLog.info {
-            SUMMARY_LINE_FMT.format(currentFrame, rbPerSec, predictedPct, lagAvg, lagMax)
+            SUMMARY_LINE_FMT.format(
+                currentFrame,
+                rbPerSec,
+                predictedPct,
+                lagAvg,
+                lagMax,
+                stallsPerSec,
+                maxAdvantage,
+            )
         }
         rollbacksInWindow = 0
         predictionHits = 0
         predictionEvals = 0
         authLags.clear()
+        stallsInWindow = 0
+        maxAdvantage = 0
         lastFlushNanos = now
     }
 
@@ -52,6 +73,7 @@ class NetcodeStatsLogger : RollbackListener {
         private const val PERCENT_SCALE = 100
 
         private const val SUMMARY_LINE_FMT =
-            "[NETCODE] f=%d rb/s=%.1f predicted=%d%% auth_lag_avg=%.1ff auth_lag_max=%df"
+            "[NETCODE] f=%d rb/s=%.1f predicted=%d%% auth_lag_avg=%.1ff auth_lag_max=%df " +
+                "stalls/s=%.1f adv_max=%df"
     }
 }

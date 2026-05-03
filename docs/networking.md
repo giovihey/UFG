@@ -66,11 +66,46 @@ Player A                   Signaling Server                Player B
    │◄──────────────── forward ────┤◄──── ICE candidates ──────┤
    │                              │                            │
    │◄══════════ P2P connection established ═══════════════════►│
-   │        (signaling server no longer needed)                │
+   │                              │                            │
+   │── "ready" ──────────────────►├── forward ────────────────►│
+   │◄──────────────── forward ────┤◄───────── "ready" ────────┤
+   │                              │                            │
+   │ (host) at = now + 500 ms     │                            │
+   │── "start" {at} ─────────────►├── forward ────────────────►│
+   │                              │                            │
+   │◄──── both peers sleep until wall-clock == at ────────────►│
    │                              │                            │
    │── InputState (every frame) ──────────────────────────────►│
    │◄─────────────────────────────────── InputState (every frame)│
 ```
+
+### Start-frame handshake
+
+P2P means each peer's data channel reaches the "open" state on its own schedule —
+DTLS finishes slightly later on one side than the other. If both peers immediately
+started simulating at `frameNumber = 0`, the lagging peer could be 10+ frames behind
+before it began, and rollback would clamp at `maxRollbackFrames = 8`, producing
+permanent desync.
+
+To avoid that, once the data channel is open the peers run a three-step protocol over
+the signaling WebSocket (which stays connected after ICE/DTLS is done):
+
+1. Each peer sends `{"type":"ready"}` and waits for its peer's ready.
+2. Once both readys have crossed, the **host** picks `at = System.currentTimeMillis()
+   + START_BUFFER_MS` (default 500 ms, comfortably greater than signaling RTT + JVM
+   jitter) and sends `{"type":"start","at":<ms>}`.
+3. Both peers (host and guest) sleep until wall-clock `at`, then simultaneously
+   construct `TimeManager`, `GameEngine`, `RollbackService`, and start the loop.
+
+`TimeManager`'s `lastFrameTime` is captured *at* that moment, not during the connect
+wait, so its accumulator can't spike on first tick.
+
+If the peer does not respond within `HANDSHAKE_TIMEOUT_MS` (5 s), the initiating side
+surfaces "Peer did not respond to start handshake." on the UI and closes the
+connection — no half-started simulation.
+
+The signaling server itself is a pure message passthrough; no server-side changes were
+required to add the new message types.
 
 ## Architecture Integration
 
@@ -78,13 +113,15 @@ The network layer fits into hexagonal architecture as an infrastructure adapter:
 
 ```
 application/
-  port/input/NetworkInputPort.kt    # drainRemoteInputs() → List<FramedInput>
+  port/input/NetworkInputPort.kt    # drainRemoteInputs() → List<FramedInput>, peerFrame() → Long
   port/input/FramedInput.kt         # (frame, InputState) DTO
-  port/output/NetworkOutputPort.kt  # sendInput(state, frame) + sendInputWindow(window)
-  service/RollbackService.kt        # predict / advance / rewind orchestration
+  port/output/NetworkOutputPort.kt  # sendInput(state, frame, senderCurrentFrame) +
+                                    # sendInputWindow(senderCurrentFrame, window)
+  service/RollbackService.kt        # predict / advance / rewind / time-sync stall
 
 infrastructure/adapter/network/
-  NetworkAdapter.kt                 # Implements both ports, ConcurrentLinkedQueue + map
+  NetworkAdapter.kt                 # Implements both ports, ConcurrentLinkedQueue + map +
+                                    # AtomicLong tracking peer's latest sim frame
   WebRtcBridge.kt                   # JNI bridge to C++ libdatachannel
   SignalingClient.kt                # WebSocket client for SDP/ICE exchange
 ```
@@ -101,5 +138,19 @@ Two threads share data via lock-free collections:
 ## C++ / JNI Layer
 
 `WebRtcBridge.kt` loads `libwebrtc_wrapper` via `System.loadLibrary()` and declares `external` functions for each native operation. JNI callbacks (`onLocalDescription`, `onLocalCandidate`, `onRemoteInput`, `onDataChannelOpen/Close`) delegate to Kotlin listener interfaces.
+
+### Wire format for input packets
+
+Each gameplay packet is **36 bytes**, packed in `webrtc_wrapper.cpp` and unpacked in the matching `onMessage` handler:
+
+| Offset | Size | Field | Meaning |
+|---|---|---|---|
+| 0 | 4 | `inputMask` (`int32`) | Bitmask of buttons held this frame. |
+| 4 | 8 | `frameNumber` (`int64`) | The frame this input belongs to (sender's scheduled frame after `inputDelay`). |
+| 12 | 8 | `senderCurrentFrame` (`int64`) | The frame the sender is currently simulating at the moment of the send. Receiver uses this to detect when its peer is ahead and stall a tick. |
+| 20 | 8 | `committedFrame` (`int64`) | The frame `committedHash` is over, or `LLONG_MIN` if the sender has no committed hash yet. |
+| 28 | 8 | `committedHash` (`int64`) | Canonical [`WorldHash`](rollback.md#canonical-hash) of the sender's `committedFrame`. Receiver compares against its own hash for the same frame; mismatch fires an `onDesync` event. Ignored when `committedFrame == LLONG_MIN`. |
+
+Both peers must run a `webrtc_wrapper.dylib` built from the matching header — a sender packing fewer bytes against a receiver expecting 36 (or vice versa) will scramble frame numbers silently. Rebuild after any wire-format change with `cd channel && cmake --build build`.
 
 The local test (`channel/test/local_test.cpp`) validates the C++ layer by simulating two peers in the same process — passing SDP and ICE candidates directly between objects without a signaling server.

@@ -35,10 +35,16 @@ extern "C" {
   Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_addIceCandidate(
       JNIEnv *env, jobject obj, jstring candidate, jstring mid);
 
-  // Send input data to the other player
+  // Send input data to the other player.
+  //   senderCurrentFrame: sender's live sim frame (for time-sync stalling).
+  //   committedFrame:     frame the committedHash is over, or LLONG_MIN if no hash yet.
+  //   committedHash:      canonical WorldHash; ignored when committedFrame is LLONG_MIN.
+  // Wire format: 36 bytes = 4 (inputMask) + 8 (frameNumber) + 8 (senderCurrentFrame)
+  //                       + 8 (committedFrame) + 8 (committedHash).
   JNIEXPORT void JNICALL
   Java_com_heyteam_ufg_infrastructure_adapter_network_WebRtcBridge_sendInput(
-      JNIEnv *env, jobject obj, jint inputMask, jlong frameNumber);
+      JNIEnv *env, jobject obj, jint inputMask, jlong frameNumber,
+      jlong senderCurrentFrame, jlong committedFrame, jlong committedHash);
 
   // Close the peer connection and data channel
   JNIEXPORT void JNICALL
