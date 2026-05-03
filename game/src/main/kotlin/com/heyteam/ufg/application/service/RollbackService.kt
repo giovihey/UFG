@@ -41,9 +41,22 @@ data class RollbackConfig(
     val inputDelay: Int = RollbackService.DEFAULT_INPUT_DELAY,
     val maxRollbackFrames: Int = RollbackService.DEFAULT_MAX_ROLLBACK_FRAMES,
     val sendWindow: Int = RollbackService.DEFAULT_SEND_WINDOW,
+    /**
+     * Frames of advantage we tolerate over the peer before stalling a tick. The peer
+     * reports its live sim frame on every packet; we compare to ours and skip a tick when
+     * we're farther ahead than this. Must be strictly less than [maxRollbackFrames] —
+     * otherwise the gap can exceed the snapshot window and corrections silently drop.
+     */
+    val syncThreshold: Int = RollbackService.DEFAULT_SYNC_THRESHOLD,
+    /**
+     * How many frames of committed-frame hashes to retain locally for desync comparison.
+     * Must comfortably exceed [maxRollbackFrames] so that a peer running slightly behind
+     * can still report a hash for a frame whose local hash we still hold.
+     */
+    val committedHashRetention: Int = RollbackService.DEFAULT_COMMITTED_HASH_RETENTION,
 )
 
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "TooManyFunctions")
 class RollbackService(
     private val engine: GameEngine,
     private val networkInput: NetworkInputPort,
@@ -56,6 +69,17 @@ class RollbackService(
     private val inputDelay: Int = config.inputDelay
     private val maxRollbackFrames: Int = config.maxRollbackFrames
     private val sendWindow: Int = config.sendWindow
+    private val syncThreshold: Int = config.syncThreshold
+    private val committedHashRetention: Int = config.committedHashRetention
+
+    init {
+        require(syncThreshold < maxRollbackFrames) {
+            "syncThreshold ($syncThreshold) must be < maxRollbackFrames ($maxRollbackFrames)"
+        }
+        require(committedHashRetention > maxRollbackFrames) {
+            "committedHashRetention ($committedHashRetention) must be > maxRollbackFrames ($maxRollbackFrames)"
+        }
+    }
 
     // Frame-keyed input tables. Always authoritative on the local side; on the remote side
     // an entry exists only once the peer's packet has been received.
@@ -78,6 +102,18 @@ class RollbackService(
     // Last known remote input (for prediction). Starts as NONE.
     private var lastRemoteInput: InputState = InputState.NONE
 
+    // Hash of every "committed" frame — i.e. a frame that has fallen out of the rollback
+    // window and can no longer be replayed. Both peers will always agree on these once
+    // they've both processed authoritative inputs through the frame, so they form the
+    // ground truth for cross-peer desync comparisons. We keep a small trailing window so
+    // that a packet from a slightly-behind peer can still find its match.
+    private val committedHashes = HashMap<Long, Long>()
+
+    // Highest frame we've committed a hash for. We piggyback this on every outbound packet
+    // so the peer can compare against its own hash for the same frame.
+    private var lastCommittedFrame: Long = NetworkOutputPort.NO_COMMITTED_HASH
+    private var lastCommittedHash: Long = 0L
+
     /**
      * Advance the simulation by exactly one frame.
      *
@@ -87,14 +123,32 @@ class RollbackService(
     fun tick(localInput: InputState): World {
         val currentFrame = engine.getWorld().frameNumber
 
+        // 0. Time-sync. If we're ahead of the peer by more than syncThreshold frames, skip
+        //    this tick entirely: don't sample/schedule the local input, don't advance the
+        //    sim, don't broadcast. We still drain incoming packets so corrections land.
+        //    This keeps `currentFrame - peerFrame` bounded so authoritative inputs always
+        //    arrive while the snapshot for their frame is still in the ring.
+        val peerFrame = networkInput.peerFrame()
+        if (peerFrame >= 0) {
+            val advantage = (currentFrame - peerFrame).toInt()
+            if (advantage > syncThreshold) {
+                processIncomingRemote(currentFrame)
+                checkDesyncs(currentFrame)
+                listener.onStall(currentFrame, advantage)
+                return engine.getWorld()
+            }
+        }
+
         // 1. Schedule local input. Apply INPUT_DELAY frames of intentional buffering so the
         //    peer usually has it before we need it -> this is what hides jitter without any
         //    rollback happening at all.
         val scheduledFrame = currentFrame + inputDelay
         localInputs[scheduledFrame] = localInput
 
-        // 2. Drain remote packets and process any that diverge from our predictions.
+        // 2. Drain remote packets and process any that diverge from our predictions, then
+        //    check the peer's committed-frame hashes against ours for cross-machine desyncs.
         processIncomingRemote(currentFrame)
+        checkDesyncs(currentFrame)
 
         // 3. Pick inputs for THIS frame.
         val localForThisFrame = localInputs[currentFrame] ?: InputState.NONE
@@ -247,7 +301,33 @@ class RollbackService(
             window.add(f to input)
             f++
         }
-        if (window.isNotEmpty()) networkOutput.sendInputWindow(window)
+        if (window.isNotEmpty()) {
+            networkOutput.sendInputWindow(
+                senderCurrentFrame = currentFrame,
+                committedFrame = lastCommittedFrame,
+                committedHash = lastCommittedHash,
+                window = window,
+            )
+        }
+    }
+
+    /** Drain peer's committed hashes and fire onDesync for any that disagree with ours. */
+    private fun checkDesyncs(currentFrame: Long) {
+        val peerHashes = networkInput.drainRemoteCommittedHashes()
+        if (peerHashes.isEmpty()) return
+        for (peer in peerHashes) {
+            val local = committedHashes[peer.frame] ?: continue
+            if (local != peer.hash) {
+                listener.onDesync(
+                    DesyncEvent(
+                        currentFrame = currentFrame,
+                        desyncFrame = peer.frame,
+                        localHash = local,
+                        peerHash = peer.hash,
+                    ),
+                )
+            }
+        }
     }
 
     private fun compact(currentFrame: Long) {
@@ -255,6 +335,25 @@ class RollbackService(
         // so it is safe to forget. We keep one extra frame for safety.
         val cutoff = currentFrame - maxRollbackFrames - 1
         if (cutoff <= 0) return
+        // Hash each snapshot we're about to forget, stash it as a committed-frame hash.
+        // Both peers reach the same world state for these frames once their local rollback
+        // windows have absorbed every authoritative input, so the hashes are comparable.
+        for ((frame, world) in worldBeforeFrame) {
+            if (frame < cutoff && !committedHashes.containsKey(frame)) {
+                val h = WorldHash.hash(world)
+                committedHashes[frame] = h
+                if (frame > lastCommittedFrame) {
+                    lastCommittedFrame = frame
+                    lastCommittedHash = h
+                }
+            }
+        }
+        // Drop anything older than the desync-comparison retention window. We keep
+        // committed hashes a bit longer than the snapshot ring so packets from a peer
+        // running slightly behind us can still find their match locally.
+        val hashRetentionCutoff = currentFrame - committedHashRetention
+        if (hashRetentionCutoff > 0) committedHashes.keys.removeAll { it < hashRetentionCutoff }
+
         worldBeforeFrame.keys.removeAll { it < cutoff }
         localInputs.keys.removeAll { it < cutoff }
         remoteAuthoritative.keys.removeAll { it < cutoff }
@@ -265,5 +364,7 @@ class RollbackService(
         const val DEFAULT_INPUT_DELAY = 2
         const val DEFAULT_MAX_ROLLBACK_FRAMES = 8
         const val DEFAULT_SEND_WINDOW = 8
+        const val DEFAULT_SYNC_THRESHOLD = 2
+        const val DEFAULT_COMMITTED_HASH_RETENTION = 60
     }
 }

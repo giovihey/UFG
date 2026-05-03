@@ -113,13 +113,15 @@ The network layer fits into hexagonal architecture as an infrastructure adapter:
 
 ```
 application/
-  port/input/NetworkInputPort.kt    # drainRemoteInputs() → List<FramedInput>
+  port/input/NetworkInputPort.kt    # drainRemoteInputs() → List<FramedInput>, peerFrame() → Long
   port/input/FramedInput.kt         # (frame, InputState) DTO
-  port/output/NetworkOutputPort.kt  # sendInput(state, frame) + sendInputWindow(window)
-  service/RollbackService.kt        # predict / advance / rewind orchestration
+  port/output/NetworkOutputPort.kt  # sendInput(state, frame, senderCurrentFrame) +
+                                    # sendInputWindow(senderCurrentFrame, window)
+  service/RollbackService.kt        # predict / advance / rewind / time-sync stall
 
 infrastructure/adapter/network/
-  NetworkAdapter.kt                 # Implements both ports, ConcurrentLinkedQueue + map
+  NetworkAdapter.kt                 # Implements both ports, ConcurrentLinkedQueue + map +
+                                    # AtomicLong tracking peer's latest sim frame
   WebRtcBridge.kt                   # JNI bridge to C++ libdatachannel
   SignalingClient.kt                # WebSocket client for SDP/ICE exchange
 ```
@@ -136,5 +138,19 @@ Two threads share data via lock-free collections:
 ## C++ / JNI Layer
 
 `WebRtcBridge.kt` loads `libwebrtc_wrapper` via `System.loadLibrary()` and declares `external` functions for each native operation. JNI callbacks (`onLocalDescription`, `onLocalCandidate`, `onRemoteInput`, `onDataChannelOpen/Close`) delegate to Kotlin listener interfaces.
+
+### Wire format for input packets
+
+Each gameplay packet is **36 bytes**, packed in `webrtc_wrapper.cpp` and unpacked in the matching `onMessage` handler:
+
+| Offset | Size | Field | Meaning |
+|---|---|---|---|
+| 0 | 4 | `inputMask` (`int32`) | Bitmask of buttons held this frame. |
+| 4 | 8 | `frameNumber` (`int64`) | The frame this input belongs to (sender's scheduled frame after `inputDelay`). |
+| 12 | 8 | `senderCurrentFrame` (`int64`) | The frame the sender is currently simulating at the moment of the send. Receiver uses this to detect when its peer is ahead and stall a tick. |
+| 20 | 8 | `committedFrame` (`int64`) | The frame `committedHash` is over, or `LLONG_MIN` if the sender has no committed hash yet. |
+| 28 | 8 | `committedHash` (`int64`) | Canonical [`WorldHash`](rollback.md#canonical-hash) of the sender's `committedFrame`. Receiver compares against its own hash for the same frame; mismatch fires an `onDesync` event. Ignored when `committedFrame == LLONG_MIN`. |
+
+Both peers must run a `webrtc_wrapper.dylib` built from the matching header — a sender packing fewer bytes against a receiver expecting 36 (or vice versa) will scramble frame numbers silently. Rebuild after any wire-format change with `cd channel && cmake --build build`.
 
 The local test (`channel/test/local_test.cpp`) validates the C++ layer by simulating two peers in the same process — passing SDP and ICE candidates directly between objects without a signaling server.
