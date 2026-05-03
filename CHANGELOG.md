@@ -1,3 +1,9 @@
+## [3.7.2](https://github.com/giovihey/UFG/compare/v3.7.1...v3.7.2) (2026-05-03)
+
+### Bug Fixes
+
+* add initial handshake ([0991a7f](https://github.com/giovihey/UFG/commit/0991a7fae10d992b388097d7dc205ac908784ca9))
+
 ## [3.7.1](https://github.com/giovihey/UFG/compare/v3.7.0...v3.7.1) (2026-04-23)
 
 ### Bug Fixes
