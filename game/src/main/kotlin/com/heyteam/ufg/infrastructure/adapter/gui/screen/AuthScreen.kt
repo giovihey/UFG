@@ -8,9 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Button
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -47,6 +56,7 @@ fun authScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isRegisterMode by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     Box(
         modifier =
@@ -69,6 +79,8 @@ fun authScreen(
                 onUsernameChange = { username = it },
                 password = password,
                 onPasswordChange = { password = it },
+                passwordVisible = passwordVisible,
+                onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
                 errorMessage = errorMessage,
             )
             Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
@@ -97,6 +109,8 @@ private fun authScreenForm(
     onUsernameChange: (String) -> Unit,
     password: String,
     onPasswordChange: (String) -> Unit,
+    passwordVisible: Boolean,
+    onPasswordVisibilityToggle: () -> Unit,
     errorMessage: String? = null,
 ) {
     TextField(
@@ -113,6 +127,31 @@ private fun authScreenForm(
         onValueChange = onPasswordChange,
         label = { Text("Password") },
         modifier = Modifier.fillMaxWidth(),
+        visualTransformation =
+            if (passwordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(onClick = onPasswordVisibilityToggle) {
+                Icon(
+                    imageVector =
+                        if (passwordVisible) {
+                            Icons.Filled.Visibility
+                        } else {
+                            Icons.Filled.VisibilityOff
+                        },
+                    contentDescription =
+                        if (passwordVisible) {
+                            "Hide password"
+                        } else {
+                            "Show password"
+                        },
+                )
+            }
+        },
     )
 
     if (errorMessage != null) {
