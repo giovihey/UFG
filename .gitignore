@@ -139,6 +139,8 @@ site/
 
 .env
 
+docker-compose.override.yml
+
 Gemfile.lock
 
 .DS_Store

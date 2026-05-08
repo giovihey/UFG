@@ -5,52 +5,36 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
-// main is responsible for:
-//  1. Reading config from environment variables
-//  2. Connecting to the database
-//  3. Setting up the HTTP routes
-//  4. Starting the server
-//
-// It wires together the Repository and the Handler.
-
 func main() {
-	// 1. Read config
-	// We read DB config here (not in repository.go) so all config reading
-	// lives in one place.
+	// Config
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
 		log.Fatal("DB_URL environment variable is required")
 	}
 
-	// 2. Connect to database
-	// NewRepository opens the connection pool and runs the migration.
-	// If Postgres isn't ready yet, this fails — docker-compose's
-	// depends_on + healthcheck ensures Postgres is up before we start.
+	// Database
 	repo, err := NewRepository(dbURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	log.Println("connected to database")
 
-	h := Handler{repo: repo}
+	// Rate limiter
+	// 2 req/s steady state, burst of 5.
+	limiter := newIPRateLimiter(2, 5)
 
+	// Routes
+	h := Handler{repo: repo}
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /auth/register", h.Register)
-	mux.HandleFunc("POST /auth/login", h.Login)
+	mux.HandleFunc("POST /auth/register", rateLimitMiddleware(h.Register, limiter))
+	mux.HandleFunc("POST /auth/login", rateLimitMiddleware(h.Login, limiter))
 
-	// /health is used by load balancers, Docker, and Kubernetes to decide
-	// whether to route traffic to this instance.
-	//
-	// Returning 200 when the DB is down would be a lie — the service cannot
-	// actually handle auth requests without a DB. We Ping Postgres with a
-	// short deadline so a hung DB doesn't make the health check hang too.
-	//
-	// 200 OK           → instance is healthy, send traffic
-	// 503 Unavailable  → instance cannot serve requests, stop sending traffic
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 		defer cancel()
@@ -64,10 +48,34 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	addr := ":8080"
-	log.Printf("auth-service listening on %s", addr)
-
-	if err := http.ListenAndServe(addr, mux); err != nil {
-		log.Fatalf("server error: %v", err)
+	// Server
+	srv := &http.Server{
+		Addr:         ":8080",
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
+
+	// Graceful shutdown
+	go func() {
+		log.Printf("auth-service listening on %s", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+
+	log.Println("shutdown signal received, draining in-flight requests...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("graceful shutdown failed: %v", err)
+	}
+
+	log.Println("server stopped cleanly")
 }
