@@ -21,7 +21,7 @@ import com.heyteam.ufg.domain.component.InputState
 class LocalNetworkPort : NetworkPort {
     override fun isConnected(): Boolean = true
 
-    override fun close() { /* no-op */ }
+    override fun close() = Unit
 
     override fun pollRemoteInput(frameNumber: Long): InputState? = null
 
@@ -38,5 +38,5 @@ class LocalNetworkPort : NetworkPort {
         senderCurrentFrame: Long,
         committedFrame: Long,
         committedHash: Long,
-    ) { /* no-op */ }
+    ) = Unit
 }
