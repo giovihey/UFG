@@ -1,3 +1,9 @@
+## [3.8.0](https://github.com/giovihey/UFG/compare/v3.7.2...v3.8.0) (2026-05-10)
+
+### Features
+
+* add rate limiter for auth ([5c19e77](https://github.com/giovihey/UFG/commit/5c19e775b5717ef74365592c8b85b6e702711a45))
+
 ## [3.7.2](https://github.com/giovihey/UFG/compare/v3.7.1...v3.7.2) (2026-05-03)
 
 ### Bug Fixes
