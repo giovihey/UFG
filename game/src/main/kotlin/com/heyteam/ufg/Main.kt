@@ -1,5 +1,6 @@
 package com.heyteam.ufg
 
+import com.heyteam.ufg.application.port.NetworkPort
 import com.heyteam.ufg.application.port.output.CharacterRepository
 import com.heyteam.ufg.application.service.CheckSessionUseCase
 import com.heyteam.ufg.application.service.GameEngine
@@ -8,18 +9,11 @@ import com.heyteam.ufg.application.service.LoginUseCase
 import com.heyteam.ufg.application.service.RegisterUseCase
 import com.heyteam.ufg.application.service.SessionStore
 import com.heyteam.ufg.application.service.TimeManager
-import com.heyteam.ufg.domain.component.Direction
-import com.heyteam.ufg.domain.component.Facing
-import com.heyteam.ufg.domain.component.Movement
-import com.heyteam.ufg.domain.component.PlayerPhysicsState
-import com.heyteam.ufg.domain.component.Position
 import com.heyteam.ufg.domain.component.Screen
-import com.heyteam.ufg.domain.entity.Character
-import com.heyteam.ufg.domain.entity.Player
-import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.ComposeAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.FakeLagInputPort
 import com.heyteam.ufg.infrastructure.adapter.network.HttpAuthAdapter
+import com.heyteam.ufg.infrastructure.adapter.network.LocalNetworkPort
 import com.heyteam.ufg.infrastructure.adapter.network.NetworkAdapter
 import com.heyteam.ufg.infrastructure.adapter.network.SignalingClient
 import com.heyteam.ufg.infrastructure.adapter.network.WebRtcBridge
@@ -42,30 +36,18 @@ const val SIGNALING_CONNECT_TIMEOUT_MS = 250L
 const val SIGNALING_CONNECT_MAX_ATTEMPTS = 20
 const val TARGET_FPS = 60
 
-// Handshake parameters. After both peers exchange "ready" the host picks a common
-// start epoch: now + START_BUFFER_MS. The buffer has to comfortably exceed one
-// signaling round-trip plus JVM jitter so both peers reach the wait before `at`.
 const val START_BUFFER_MS = 500L
-
-// Bound the wait for the peer to send "ready" / "start". If the peer never shows up
-// (crashed, network dropped) we surface a clean error instead of hanging forever.
 const val HANDSHAKE_TIMEOUT_MS = 5_000L
 
-// ── Service URLs ──────────────────────────────────────────────────────────
-// auth-service is mapped to 8081 in docker-compose.yml (ports: "8081:8080")
-// signaling stays on 8080
+// Minimum time the VS splash is visible, regardless of how long the sync wait takes.
+const val VS_SPLASH_MIN_MS = 2_000L
+
 const val AUTH_BASE_URL = "http://localhost:8081"
 const val SIGNALING_URL = "ws://localhost:8080/ws"
 const val STUN_SERVER = "stun:stun.l.google.com:19302"
 
 fun main(args: Array<String>) {
-    // Read --host flag once here — used later in onGameStart.
-    // Temporary until the lobby service assigns host/guest automatically.
     val isHost = args.contains("--host")
-
-    // --fake-lag=N injects N ticks of delay on received remote inputs. Used to demo
-    // rollback behaviour on loopback where authoritative inputs would otherwise always
-    // arrive on time and no rewinds would ever fire.
     val fakeLag =
         args
             .firstOrNull { it.startsWith("--fake-lag=") }
@@ -76,69 +58,113 @@ fun main(args: Array<String>) {
 
     val scope = CoroutineScope(Dispatchers.Default)
 
-    // 1. Create adapters
-    // ComposeAdapter is created first — it's needed by the use cases (ScreenPort).
-    // HttpAuthAdapter is the only thing that knows the auth-service URL.
     val composeAdapter = ComposeAdapter()
     val authAdapter = HttpAuthAdapter(AUTH_BASE_URL)
     val sessionStore = SessionStore()
 
-    // 2. Create use cases
-    //  only know about ports (interfaces), never about adapters directly.
     val checkSessionUseCase = CheckSessionUseCase(sessionStore, composeAdapter)
     val loginUseCase = LoginUseCase(authAdapter, sessionStore, composeAdapter)
     val registerUseCase = RegisterUseCase(authAdapter, sessionStore, composeAdapter)
 
-    // 3. Wire callbacks into ComposeAdapter
-    // This is the ONLY place where UI events meet application logic.
-    // ComposeAdapter holds lambdas — it never imports use cases.
-
     composeAdapter.onPlayPressed = {
-        // Title screen Play button → check if already logged in
         checkSessionUseCase.execute()
     }
 
     composeAdapter.onLogin = { username, password ->
-        // Auth screen Login button → suspend call needs a coroutine
         scope.launch { loginUseCase.execute(username, password) }
     }
 
     composeAdapter.onRegister = { username, password ->
-        // Auth screen Register button
         scope.launch { registerUseCase.execute(username, password) }
     }
 
     composeAdapter.onGameStart = { _ ->
         scope.launch(Dispatchers.IO) {
-            onGameStart(composeAdapter, isHost, fakeLag)
+            onGameStart(composeAdapter, isHost, fakeLag, sessionStore)
         }
     }
+
     composeAdapter.startUI()
 }
 
 /**
- * Boot WebRTC + game loop on a background thread.
- * The isHost parameter comes from the --host CLI arg.
- * This whole function will be replaced by the lobby service later.
+ * Full matchmaking + game-start flow:
+ *
+ *  1. Spin up a [LocalNetworkPort] practice loop immediately → player can warm up while
+ *     we negotiate the WebRTC connection in the background.
+ *  2. Once the peer's data channel opens, stop the practice loop and run the start-frame
+ *     handshake.
+ *  3. Navigate to [Screen.VsSplash] for the duration of the [START_BUFFER_MS] sync wait.
+ *  4. At the agreed epoch, swap in the real [GameLoop] and navigate to [Screen.Game].
+ *
+ * No domain or application-layer code was changed to support this — only a new adapter
+ * ([LocalNetworkPort]) and two new screens ([PracticeScreen], [VsSplashScreen]).
  */
 private suspend fun onGameStart(
     composeAdapter: ComposeAdapter,
     isHost: Boolean,
     fakeLag: Int,
+    sessionStore: SessionStore,
 ) {
+    val characters: CharacterRepository = JsonCharacterRepository()
+    val practiceLoop = createPracticeLoop(composeAdapter, characters)
+    startPracticeLoop(composeAdapter, practiceLoop)
+
+    val (networkPort, signalingClient, networkAdapter) =
+        setupNetworkAndSignaling(isHost, fakeLag, composeAdapter, practiceLoop)
+
+    practiceLoop.stop()
+
+    val startAt =
+        runHandshake(signalingClient, isHost) ?: return run {
+            composeAdapter.showError("Peer did not respond to start handshake.")
+            networkAdapter.close()
+        }
+
+    showVsSplashAndWait(composeAdapter, sessionStore, isHost, startAt)
+
+    val realLoop = createRealGameLoop(composeAdapter, characters, networkPort, isHost)
+    startRealGameLoop(composeAdapter, realLoop, networkAdapter, startAt)
+}
+
+private fun createPracticeLoop(
+    composeAdapter: ComposeAdapter,
+    characters: CharacterRepository,
+): GameLoop =
+    GameLoop(
+        gameEngine = GameEngine(createWorld(characters)),
+        inputPort = composeAdapter,
+        renderPort = composeAdapter,
+        timeManager = TimeManager(targetFPS = TARGET_FPS),
+        networkPort = LocalNetworkPort(),
+        isHost = true, // P1 is always local in practice
+    )
+
+private fun startPracticeLoop(
+    composeAdapter: ComposeAdapter,
+    practiceLoop: GameLoop,
+) {
+    composeAdapter.onShutdown = { composeAdapter.navigate(Screen.Menu) }
+    Thread(practiceLoop::start, "practice-loop").apply { isDaemon = true }.start()
+    composeAdapter.navigate(Screen.Practice)
+    log.info { "Practice loop started, searching for peer..." }
+}
+
+private suspend fun setupNetworkAndSignaling(
+    isHost: Boolean,
+    fakeLag: Int,
+    composeAdapter: ComposeAdapter,
+    practiceLoop: GameLoop,
+): Triple<NetworkPort, SignalingClient, NetworkAdapter> {
     val bridge = WebRtcBridge()
     val networkAdapter = NetworkAdapter(bridge)
     val networkPort = if (fakeLag > 0) FakeLagInputPort(networkAdapter, fakeLag) else networkAdapter
     val signalingClient = SignalingClient(SIGNALING_URL, bridge)
 
-    // Listeners ASSEMBLE!!!
     bridge.dataChannelListener = networkAdapter
     bridge.initialize(STUN_SERVER)
     signalingClient.connect()
 
-    // Wait for the WebSocket handshake to complete before sending anything.
-    // Without this wait, createOffer() fires before the connection is open
-    // and the SDP is lost — exactly the "Cannot send local description" warning.
     var attempts = 0
     while (!signalingClient.isReady() && attempts < SIGNALING_CONNECT_MAX_ATTEMPTS) {
         delay(SIGNALING_CONNECT_TIMEOUT_MS)
@@ -146,68 +172,74 @@ private suspend fun onGameStart(
     }
 
     if (!signalingClient.isReady()) {
+        practiceLoop.stop()
         composeAdapter.showError("Could not connect to signaling server. Is it running?")
-        return
+        error("Signaling connection failed")
     }
 
-    log.info { "Connected to signaling server. isHost=$isHost" }
-
+    log.info { "Signaling ready. isHost=$isHost" }
     if (isHost) bridge.createOffer()
 
-    // Wait for the P2P data channel to open
-    log.info { "Waiting for peer to connect..." }
     while (!networkAdapter.isConnected()) {
         delay(POLL_INTERVAL_MS)
     }
     log.info { "Peer connected. Running start-frame handshake..." }
 
-    // Start-frame handshake. Without this, peers start simulating the moment their own
-    // data channel reports open — with variable DTLS-setup latency the lagging peer can
-    // be 10+ frames behind, exceeding maxRollbackFrames and producing permanent desync.
-    // We pin both peers to the same wall-clock start epoch via signaling.
-    val startAt =
-        runHandshake(signalingClient, isHost) ?: return run {
-            composeAdapter.showError("Peer did not respond to start handshake.")
-            networkAdapter.close()
-        }
-    val sleepMs = (startAt - System.currentTimeMillis()).coerceAtLeast(0L)
+    return Triple(networkPort, signalingClient, networkAdapter)
+}
+
+private suspend fun showVsSplashAndWait(
+    composeAdapter: ComposeAdapter,
+    sessionStore: SessionStore,
+    isHost: Boolean,
+    startAt: Long,
+) {
+    val localName = sessionStore.get()?.username ?: "P1"
+    val remoteName = if (isHost) "P2" else "P1"
+    val splashShownAt = System.currentTimeMillis()
+    composeAdapter.navigate(Screen.VsSplash(p1Name = localName, p2Name = remoteName))
+
+    val targetMs = maxOf(startAt, splashShownAt + VS_SPLASH_MIN_MS)
+    val sleepMs = (targetMs - System.currentTimeMillis()).coerceAtLeast(0L)
     if (sleepMs > 0) delay(sleepMs)
+}
 
-    // Everything below this point runs at the agreed start epoch on both peers.
-    val timeManager = TimeManager(targetFPS = TARGET_FPS)
-    val characters: CharacterRepository = JsonCharacterRepository()
-    val engine = GameEngine(createWorld(characters))
-    log.info { "Starting game loop at epoch=$startAt" }
+private fun createRealGameLoop(
+    composeAdapter: ComposeAdapter,
+    characters: CharacterRepository,
+    networkPort: NetworkPort,
+    isHost: Boolean,
+): GameLoop =
+    GameLoop(
+        gameEngine = GameEngine(createWorld(characters)),
+        inputPort = composeAdapter,
+        renderPort = composeAdapter,
+        timeManager = TimeManager(targetFPS = TARGET_FPS),
+        networkPort = networkPort,
+        isHost = isHost,
+    )
 
-    val loop =
-        GameLoop(
-            gameEngine = engine,
-            inputPort = composeAdapter,
-            renderPort = composeAdapter,
-            timeManager = timeManager,
-            networkPort = networkPort,
-            isHost = isHost,
-        )
-
+private fun startRealGameLoop(
+    composeAdapter: ComposeAdapter,
+    realLoop: GameLoop,
+    networkAdapter: NetworkAdapter,
+    startAt: Long,
+) {
     composeAdapter.onShutdown = {
-        loop.stop()
+        realLoop.stop()
         networkAdapter.close()
     }
 
-    Thread(loop::start, "game-loop").apply { isDaemon = true }.start()
-
-    // Switch to Game screen only once the loop is running
+    log.info { "Starting real game loop at epoch=$startAt" }
+    Thread(realLoop::start, "game-loop").apply { isDaemon = true }.start()
     composeAdapter.navigate(Screen.Game)
 }
 
 /**
- * Three-step protocol run over the signaling WebSocket once the data channel is open:
  *  1. Both peers send `ready`.
  *  2. Both peers wait for the peer's `ready`.
  *  3. Host picks `at = now + START_BUFFER_MS` and broadcasts `start`. Guest awaits it.
  *
- * Returns the agreed epoch ms, or `null` if the peer did not complete the handshake
- * within [HANDSHAKE_TIMEOUT_MS].
  */
 private suspend fun runHandshake(
     signalingClient: SignalingClient,
@@ -231,35 +263,3 @@ private suspend fun runHandshake(
             }
     }
 }
-
-fun createWorld(characters: CharacterRepository): World {
-    val p1Character = requireNotNull(characters.findById(P1_CHARACTER_ID))
-    val p2Character = requireNotNull(characters.findById(P2_CHARACTER_ID))
-    val p1 = spawnPlayer(id = 1, name = "P1", startX = P1_START_X, character = p1Character, facing = Facing.RIGHT)
-    val p2 = spawnPlayer(id = 2, name = "P2", startX = P2_START_X, character = p2Character, facing = Facing.LEFT)
-    return World(frameNumber = 0L, players = mapOf(1 to p1, 2 to p2))
-}
-
-private fun spawnPlayer(
-    id: Int,
-    name: String,
-    startX: Double,
-    character: Character,
-    facing: Facing,
-): Player =
-    Player(
-        id = id,
-        name = name,
-        position = Position(startX, 0.0),
-        nextMove =
-            Movement(
-                direction = Direction(0.0, 0.0),
-                position = Position(startX, 0.0),
-                speedX = 0.0,
-                speedY = 0.0,
-            ),
-        health = character.maxHealth,
-        hurtBox = character.defaultHurtbox,
-        character = character,
-        physicsState = PlayerPhysicsState(facing = facing),
-    )
