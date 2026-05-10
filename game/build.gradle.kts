@@ -45,6 +45,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
     implementation("io.github.oshai:kotlin-logging-jvm:$kotlinLoggingVersion")
     implementation(compose.desktop.currentOs)
+    implementation(compose.materialIconsExtended)
 }
 
 application {

@@ -8,9 +8,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Button
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.Text
 import androidx.compose.material.TextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,6 +25,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -30,6 +39,20 @@ private const val AUTH_TITLE_SIZE = 32
 private const val AUTH_FORM_SPACING = 24
 private const val AUTH_INPUT_SPACING = 12
 private const val AUTH_ERROR_SIZE = 12
+
+// Data classes to group form-related parameters
+private data class AuthFormState(
+    val username: String,
+    val password: String,
+    val passwordVisible: Boolean,
+    val errorMessage: String? = null,
+)
+
+private data class AuthFormCallbacks(
+    val onUsernameChange: (String) -> Unit,
+    val onPasswordChange: (String) -> Unit,
+    val onPasswordVisibilityToggle: () -> Unit,
+)
 
 /**
  * AuthScreen — login/register UI for the game.
@@ -47,6 +70,7 @@ fun authScreen(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isRegisterMode by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     Box(
         modifier =
@@ -65,11 +89,19 @@ fun authScreen(
             authScreenTitle(isRegisterMode)
             Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
             authScreenForm(
-                username = username,
-                onUsernameChange = { username = it },
-                password = password,
-                onPasswordChange = { password = it },
-                errorMessage = errorMessage,
+                state =
+                    AuthFormState(
+                        username = username,
+                        password = password,
+                        passwordVisible = passwordVisible,
+                        errorMessage = errorMessage,
+                    ),
+                callbacks =
+                    AuthFormCallbacks(
+                        onUsernameChange = { username = it },
+                        onPasswordChange = { password = it },
+                        onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
+                    ),
             )
             Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
             authScreenButtons(
@@ -93,15 +125,12 @@ private fun authScreenTitle(isRegisterMode: Boolean) {
 
 @Composable
 private fun authScreenForm(
-    username: String,
-    onUsernameChange: (String) -> Unit,
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    errorMessage: String? = null,
+    state: AuthFormState,
+    callbacks: AuthFormCallbacks,
 ) {
     TextField(
-        value = username,
-        onValueChange = onUsernameChange,
+        value = state.username,
+        onValueChange = callbacks.onUsernameChange,
         label = { Text("Username") },
         modifier = Modifier.fillMaxWidth(),
     )
@@ -109,16 +138,41 @@ private fun authScreenForm(
     Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
 
     TextField(
-        value = password,
-        onValueChange = onPasswordChange,
+        value = state.password,
+        onValueChange = callbacks.onPasswordChange,
         label = { Text("Password") },
         modifier = Modifier.fillMaxWidth(),
+        visualTransformation =
+            if (state.passwordVisible) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(onClick = callbacks.onPasswordVisibilityToggle) {
+                Icon(
+                    imageVector =
+                        if (state.passwordVisible) {
+                            Icons.Filled.Visibility
+                        } else {
+                            Icons.Filled.VisibilityOff
+                        },
+                    contentDescription =
+                        if (state.passwordVisible) {
+                            "Hide password"
+                        } else {
+                            "Show password"
+                        },
+                )
+            }
+        },
     )
 
-    if (errorMessage != null) {
+    if (state.errorMessage != null) {
         Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
         Text(
-            text = errorMessage,
+            text = state.errorMessage,
             color = AUTH_ERROR_COLOR,
             fontSize = AUTH_ERROR_SIZE.sp,
         )
