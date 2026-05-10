@@ -40,6 +40,20 @@ private const val AUTH_FORM_SPACING = 24
 private const val AUTH_INPUT_SPACING = 12
 private const val AUTH_ERROR_SIZE = 12
 
+// Data classes to group form-related parameters
+private data class AuthFormState(
+    val username: String,
+    val password: String,
+    val passwordVisible: Boolean,
+    val errorMessage: String? = null,
+)
+
+private data class AuthFormCallbacks(
+    val onUsernameChange: (String) -> Unit,
+    val onPasswordChange: (String) -> Unit,
+    val onPasswordVisibilityToggle: () -> Unit,
+)
+
 /**
  * AuthScreen — login/register UI for the game.
  *
@@ -75,13 +89,19 @@ fun authScreen(
             authScreenTitle(isRegisterMode)
             Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
             authScreenForm(
-                username = username,
-                onUsernameChange = { username = it },
-                password = password,
-                onPasswordChange = { password = it },
-                passwordVisible = passwordVisible,
-                onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
-                errorMessage = errorMessage,
+                state =
+                    AuthFormState(
+                        username = username,
+                        password = password,
+                        passwordVisible = passwordVisible,
+                        errorMessage = errorMessage,
+                    ),
+                callbacks =
+                    AuthFormCallbacks(
+                        onUsernameChange = { username = it },
+                        onPasswordChange = { password = it },
+                        onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
+                    ),
             )
             Spacer(modifier = Modifier.height(AUTH_FORM_SPACING.dp))
             authScreenButtons(
@@ -105,17 +125,12 @@ private fun authScreenTitle(isRegisterMode: Boolean) {
 
 @Composable
 private fun authScreenForm(
-    username: String,
-    onUsernameChange: (String) -> Unit,
-    password: String,
-    onPasswordChange: (String) -> Unit,
-    passwordVisible: Boolean,
-    onPasswordVisibilityToggle: () -> Unit,
-    errorMessage: String? = null,
+    state: AuthFormState,
+    callbacks: AuthFormCallbacks,
 ) {
     TextField(
-        value = username,
-        onValueChange = onUsernameChange,
+        value = state.username,
+        onValueChange = callbacks.onUsernameChange,
         label = { Text("Username") },
         modifier = Modifier.fillMaxWidth(),
     )
@@ -123,28 +138,28 @@ private fun authScreenForm(
     Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
 
     TextField(
-        value = password,
-        onValueChange = onPasswordChange,
+        value = state.password,
+        onValueChange = callbacks.onPasswordChange,
         label = { Text("Password") },
         modifier = Modifier.fillMaxWidth(),
         visualTransformation =
-            if (passwordVisible) {
+            if (state.passwordVisible) {
                 VisualTransformation.None
             } else {
                 PasswordVisualTransformation()
             },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
-            IconButton(onClick = onPasswordVisibilityToggle) {
+            IconButton(onClick = callbacks.onPasswordVisibilityToggle) {
                 Icon(
                     imageVector =
-                        if (passwordVisible) {
+                        if (state.passwordVisible) {
                             Icons.Filled.Visibility
                         } else {
                             Icons.Filled.VisibilityOff
                         },
                     contentDescription =
-                        if (passwordVisible) {
+                        if (state.passwordVisible) {
                             "Hide password"
                         } else {
                             "Show password"
@@ -154,10 +169,10 @@ private fun authScreenForm(
         },
     )
 
-    if (errorMessage != null) {
+    if (state.errorMessage != null) {
         Spacer(modifier = Modifier.height(AUTH_INPUT_SPACING.dp))
         Text(
-            text = errorMessage,
+            text = state.errorMessage,
             color = AUTH_ERROR_COLOR,
             fontSize = AUTH_ERROR_SIZE.sp,
         )
