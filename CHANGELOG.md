@@ -1,3 +1,9 @@
+## [3.9.0](https://github.com/giovihey/UFG/compare/v3.8.0...v3.9.0) (2026-06-18)
+
+### Features
+
+* add practice and Vs screen when searching a game ([1926dc2](https://github.com/giovihey/UFG/commit/1926dc2b9d7dba4d68fbccc55b47b9da29bde4ea))
+
 ## [3.8.0](https://github.com/giovihey/UFG/compare/v3.7.2...v3.8.0) (2026-05-10)
 
 ### Features
