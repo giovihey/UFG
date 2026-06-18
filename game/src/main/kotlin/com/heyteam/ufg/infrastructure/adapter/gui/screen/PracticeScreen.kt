@@ -32,6 +32,29 @@ import androidx.compose.ui.unit.sp
 import com.heyteam.ufg.domain.entity.World
 import kotlinx.coroutines.delay
 
+private const val SEARCH_TIMER_UPDATE_MS = 1_000L
+private const val SECONDS_PER_MINUTE = 60
+private const val SEARCH_ANIMATION_DURATION_MS = 900
+private const val HUD_PADDING_DP = 16
+private const val HUD_TEXT_SIZE_SP = 32
+
+// Searching overlay
+private const val OVERLAY_TOP_PADDING_DP = 64
+private const val OVERLAY_COLUMN_SPACING_DP = 12
+private const val OVERLAY_TEXT_SIZE_SP = 15
+private const val OVERLAY_TEXT_CANCEL_SIZE_SP = 13
+private const val OVERLAY_PADDING_HORIZONTAL_DP = 20
+private const val OVERLAY_PADDING_VERTICAL_DP = 8
+private const val OVERLAY_BACKGROUND_ALPHA = 0.8f
+
+// Controls hint
+private const val CONTROLS_BOTTOM_PADDING_DP = 16
+private const val CONTROLS_PADDING_HORIZONTAL_DP = 20
+private const val CONTROLS_PADDING_VERTICAL_DP = 10
+private const val CONTROLS_SPACING_DP = 28
+private const val CONTROL_KEY_TEXT_SIZE_SP = 13
+private const val CONTROL_LABEL_TEXT_SIZE_SP = 11
+
 @Composable
 fun practiceScreen(
     world: World,
@@ -50,22 +73,22 @@ private fun practiceHud(world: World) {
     var searchSeconds by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(1_000)
+            delay(SEARCH_TIMER_UPDATE_MS)
             searchSeconds++
         }
     }
-    val minutes = searchSeconds / 60
-    val seconds = searchSeconds % 60
+    val minutes = searchSeconds / SECONDS_PER_MINUTE
+    val seconds = searchSeconds % SECONDS_PER_MINUTE
 
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(HUD_PADDING_DP.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         world.getPlayer(1)?.let { healthBar(it, Color.Red) }
         Text(
             text = "%d:%02d".format(minutes, seconds),
             color = Color.White,
-            fontSize = 32.sp,
+            fontSize = HUD_TEXT_SIZE_SP.sp,
         )
         world.getPlayer(2)?.let { healthBar(it, Color.Blue) }
     }
@@ -79,7 +102,7 @@ private fun searchingOverlay(onCancel: () -> Unit) {
         targetValue = 0.3f,
         animationSpec =
             infiniteRepeatable(
-                animation = tween(durationMillis = 900, easing = LinearEasing),
+                animation = tween(durationMillis = SEARCH_ANIMATION_DURATION_MS, easing = LinearEasing),
                 repeatMode = RepeatMode.Reverse,
             ),
     )
@@ -88,33 +111,39 @@ private fun searchingOverlay(onCancel: () -> Unit) {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(top = 64.dp),
+                .padding(top = OVERLAY_TOP_PADDING_DP.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(OVERLAY_COLUMN_SPACING_DP.dp),
         ) {
             Text(
                 text = "⟳  Searching for opponent…",
                 color = Color.White,
-                fontSize = 15.sp,
+                fontSize = OVERLAY_TEXT_SIZE_SP.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier =
                     Modifier
                         .alpha(alpha)
-                        .background(Color.Black.copy(alpha = 0.8f))
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .background(Color.Black.copy(alpha = OVERLAY_BACKGROUND_ALPHA))
+                        .padding(
+                            horizontal = OVERLAY_PADDING_HORIZONTAL_DP.dp,
+                            vertical = OVERLAY_PADDING_VERTICAL_DP.dp,
+                        ),
             )
             Text(
                 text = "Cancel",
                 color = Color.LightGray,
-                fontSize = 13.sp,
+                fontSize = OVERLAY_TEXT_CANCEL_SIZE_SP.sp,
                 modifier =
                     Modifier
-                        .background(Color.Black.copy(alpha = 0.8f))
+                        .background(Color.Black.copy(alpha = OVERLAY_BACKGROUND_ALPHA))
                         .clickable(onClick = onCancel)
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                        .padding(
+                            horizontal = OVERLAY_PADDING_HORIZONTAL_DP.dp,
+                            vertical = OVERLAY_PADDING_VERTICAL_DP.dp,
+                        ),
             )
         }
     }
@@ -126,15 +155,18 @@ private fun controlsHint() {
         modifier =
             Modifier
                 .fillMaxSize()
-                .padding(bottom = 16.dp),
+                .padding(bottom = CONTROLS_BOTTOM_PADDING_DP.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Row(
             modifier =
                 Modifier
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(28.dp),
+                    .background(Color.Black.copy(alpha = OVERLAY_BACKGROUND_ALPHA))
+                    .padding(
+                        horizontal = CONTROLS_PADDING_HORIZONTAL_DP.dp,
+                        vertical = CONTROLS_PADDING_VERTICAL_DP.dp,
+                    ),
+            horizontalArrangement = Arrangement.spacedBy(CONTROLS_SPACING_DP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             controlKey("A / D", "Move")
@@ -156,13 +188,13 @@ private fun controlKey(
         Text(
             text = key,
             color = Color.Yellow,
-            fontSize = 13.sp,
+            fontSize = CONTROL_KEY_TEXT_SIZE_SP.sp,
             fontWeight = FontWeight.Bold,
         )
         Text(
             text = label,
             color = Color.LightGray,
-            fontSize = 11.sp,
+            fontSize = CONTROL_LABEL_TEXT_SIZE_SP.sp,
         )
     }
 }

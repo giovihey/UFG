@@ -26,7 +26,8 @@ fun createWorld(characters: CharacterRepository): World {
  * The timer displayed in [practiceScreen] is a Compose count-up, independent of this
  * value — it shows how long the player has been searching, not a game countdown.
  */
-fun createPracticeWorld(characters: CharacterRepository): World = createWorld(characters).copy(roundTimer = Int.MAX_VALUE)
+fun createPracticeWorld(characters: CharacterRepository): World =
+    createWorld(characters).copy(roundTimer = Int.MAX_VALUE)
 
 private fun spawnPlayer(
     id: Int,
