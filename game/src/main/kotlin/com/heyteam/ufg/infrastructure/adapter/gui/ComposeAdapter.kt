@@ -24,7 +24,9 @@ import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.authScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.menuScreen
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.practiceScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.titleScreen
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.vsSplashScreen
 
 class ComposeAdapter :
     RenderPort,
@@ -37,11 +39,9 @@ class ComposeAdapter :
     var onLogin: (username: String, password: String) -> Unit = { _, _ -> }
     var onRegister: (username: String, password: String) -> Unit = { _, _ -> }
     var onGameStart: (isHost: Boolean) -> Unit = {}
+    var onCancelMatchmaking: () -> Unit = {}
     var onShutdown: (() -> Unit)? = null
 
-    // mutableStateOf is thread-safe for reads/writes
-    // mutableStateOf is the magic — unlike @Volatile, Compose observes it. When the game loop
-    // writes a new World, Compose sees the change and redraws the screen.
     private var worldState by mutableStateOf<World?>(null)
 
     override fun render(world: World) {
@@ -91,12 +91,9 @@ class ComposeAdapter :
                     }
                 },
             ) {
-                when (currentScreen) {
-                    // Play pressed → Main.kt decides: Auth or Menu
+                when (val screen = currentScreen) {
                     is Screen.Title -> {
-                        titleScreen(
-                            onPlay = { onPlayPressed() },
-                        )
+                        titleScreen(onPlay = { onPlayPressed() })
                     }
 
                     is Screen.Auth -> {
@@ -107,8 +104,6 @@ class ComposeAdapter :
                         )
                     }
 
-                    // Menu: Play triggers game start — Main.kt decides host/guest
-                    // This will later be replaced by the lobby flow
                     is Screen.Menu -> {
                         menuScreen(
                             onPlay = { onGameStart(true) }, // temporary — lobby replaces this
@@ -117,7 +112,17 @@ class ComposeAdapter :
                         )
                     }
 
-                    // Game screen: driven by world state from the game loop
+                    // The practice loop writes to worldState just like the real game loop,
+                    // so rendering is identical — only the overlay differs.
+                    is Screen.Practice -> {
+                        val world = worldState
+                        if (world != null) practiceScreen(world, onCancel = { onCancelMatchmaking() })
+                    }
+
+                    is Screen.VsSplash -> {
+                        vsSplashScreen(p1Name = screen.p1Name, p2Name = screen.p2Name)
+                    }
+
                     is Screen.Game -> {
                         val world = worldState
                         if (world != null) gameScreen(world)
@@ -126,7 +131,6 @@ class ComposeAdapter :
             }
         }
 
-    // Input handling
     override fun press(button: GameButton) {
         currentBitMask = currentBitMask or button.bit
     }
