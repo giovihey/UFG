@@ -21,6 +21,7 @@ import com.heyteam.ufg.infrastructure.adapter.output.JsonCharacterRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -78,10 +79,18 @@ fun main(args: Array<String>) {
         scope.launch { registerUseCase.execute(username, password) }
     }
 
+    var matchmakingJob: Job? = null
+
     composeAdapter.onGameStart = { _ ->
-        scope.launch(Dispatchers.IO) {
-            onGameStart(composeAdapter, isHost, fakeLag, sessionStore)
-        }
+        matchmakingJob =
+            scope.launch(Dispatchers.IO) {
+                onGameStart(composeAdapter, isHost, fakeLag, sessionStore)
+            }
+    }
+
+    composeAdapter.onCancelMatchmaking = {
+        matchmakingJob?.cancel()
+        composeAdapter.navigate(Screen.Menu)
     }
 
     composeAdapter.startUI()
@@ -110,21 +119,27 @@ private suspend fun onGameStart(
     val practiceLoop = createPracticeLoop(composeAdapter, characters)
     startPracticeLoop(composeAdapter, practiceLoop)
 
-    val (networkPort, signalingClient, networkAdapter) =
-        setupNetworkAndSignaling(isHost, fakeLag, composeAdapter, practiceLoop)
+    try {
+        val (networkPort, signalingClient, networkAdapter) =
+            setupNetworkAndSignaling(isHost, fakeLag, composeAdapter, practiceLoop)
 
-    practiceLoop.stop()
+        practiceLoop.stop()
 
-    val startAt =
-        runHandshake(signalingClient, isHost) ?: return run {
-            composeAdapter.showError("Peer did not respond to start handshake.")
-            networkAdapter.close()
-        }
+        val startAt =
+            runHandshake(signalingClient, isHost) ?: return run {
+                composeAdapter.showError("Peer did not respond to start handshake.")
+                networkAdapter.close()
+            }
 
-    showVsSplashAndWait(composeAdapter, sessionStore, isHost, startAt)
+        showVsSplashAndWait(composeAdapter, sessionStore, isHost, startAt)
 
-    val realLoop = createRealGameLoop(composeAdapter, characters, networkPort, isHost)
-    startRealGameLoop(composeAdapter, realLoop, networkAdapter, startAt)
+        val realLoop = createRealGameLoop(composeAdapter, characters, networkPort, isHost)
+        startRealGameLoop(composeAdapter, realLoop, networkAdapter, startAt)
+    } finally {
+        // Guaranteed to run on success, error, OR coroutine cancellation (cancel button).
+        // Calling stop() twice is safe — it just sets isRunning = false.
+        practiceLoop.stop()
+    }
 }
 
 private fun createPracticeLoop(
@@ -132,7 +147,7 @@ private fun createPracticeLoop(
     characters: CharacterRepository,
 ): GameLoop =
     GameLoop(
-        gameEngine = GameEngine(createWorld(characters)),
+        gameEngine = GameEngine(createPracticeWorld(characters)),
         inputPort = composeAdapter,
         renderPort = composeAdapter,
         timeManager = TimeManager(targetFPS = TARGET_FPS),

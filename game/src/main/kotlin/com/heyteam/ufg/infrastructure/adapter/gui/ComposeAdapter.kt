@@ -39,6 +39,7 @@ class ComposeAdapter :
     var onLogin: (username: String, password: String) -> Unit = { _, _ -> }
     var onRegister: (username: String, password: String) -> Unit = { _, _ -> }
     var onGameStart: (isHost: Boolean) -> Unit = {}
+    var onCancelMatchmaking: () -> Unit = {}
     var onShutdown: (() -> Unit)? = null
 
     private var worldState by mutableStateOf<World?>(null)
@@ -115,7 +116,7 @@ class ComposeAdapter :
                     // so rendering is identical — only the overlay differs.
                     is Screen.Practice -> {
                         val world = worldState
-                        if (world != null) practiceScreen(world)
+                        if (world != null) practiceScreen(world, onCancel = { onCancelMatchmaking() })
                     }
 
                     is Screen.VsSplash -> {
