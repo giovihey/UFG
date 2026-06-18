@@ -27,7 +27,8 @@ fun createWorld(characters: CharacterRepository): World {
  * value — it shows how long the player has been searching, not a game countdown.
  */
 fun createPracticeWorld(characters: CharacterRepository): World =
-    createWorld(characters).copy(roundTimer = Int.MAX_VALUE)
+    createWorld(characters)
+        .copy(roundTimer = Int.MAX_VALUE)
 
 private fun spawnPlayer(
     id: Int,
