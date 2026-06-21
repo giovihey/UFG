@@ -114,7 +114,7 @@ rewind ever fires and `rb/s` stays at `0.0`. To demonstrate rollback behaviour, 
 client with:
 
 ```
-./gradlew run --args="--host --fake-lag=4"
+./gradlew run --args="--fake-lag=4"
 ```
 
 The flag wires an extra `FakeLagInputPort` decorator around the real network port. It
@@ -146,7 +146,7 @@ Edit `game/src/main/resources/logback.xml`:
 To override at runtime without rebuilding, pass a different config file:
 
 ```
-./gradlew run --args="--host" -Dlogback.configurationFile=/absolute/path/to/logback.xml
+./gradlew run -Dlogback.configurationFile=/absolute/path/to/logback.xml
 ```
 
 ## Adding a logger

@@ -41,21 +41,18 @@ go run .
 
 Default address: `ws://<server-ip>:8080/ws`
 
-**Step 2** — Player A (host):
-
-```bash
-cd game
-./gradlew run --args="--host"
-```
-
-**Step 3** — Player B (joiner):
+**Step 2 & 3** — both players launch a client (no flags, on either machine):
 
 ```bash
 cd game
 ./gradlew run
 ```
 
-Both clients connect to the signaling server, exchange SDP/ICE, establish P2P, and the match begins.
+Roles are assigned by the matchmaking server: the first client to queue becomes the host
+(offerer), the next one to arrive is paired with it as the joiner (answerer). Many pairs
+can be in progress at once — each matched pair gets its own isolated room. Both clients
+connect to the signaling server, get matched, exchange SDP/ICE, establish P2P, and the
+match begins.
 
 ## Native Library
 

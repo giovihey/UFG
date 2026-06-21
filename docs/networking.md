@@ -48,10 +48,32 @@ Once ICE finds a path, WebRTC opens a **data channel** — a bidirectional pipe 
 
 This gives UDP-like behavior wrapped in WebRTC's DTLS encryption and NAT traversal.
 
+## Matchmaking
+
+Players do not pick a host or a room. Each client opens a WebSocket to the signaling
+server and is placed in a **matchmaking queue**. The server pairs players on arrival:
+
+- The first client to connect waits in the queue.
+- The next client to connect is paired with the waiter. The server opens a fresh **room**,
+  assigns the earlier player the `offerer` role and the new arrival the `answerer` role,
+  and sends each a `{"type":"matched","role":...}` message.
+- Only the offerer creates the WebRTC offer; from there the SDP/ICE/ready/start traffic is
+  relayed **only between the two peers of that room**.
+
+Because a new room is opened for every pair, the server supports an unbounded number of
+concurrent matches — it is no longer limited to two players total. If a player disconnects
+while queued, the queue is cleared; if a player disconnects mid-room, the room is dissolved
+and the surviving peer receives `{"type":"peer_left"}`.
+
 ## Connection Flow
 
 ```
 Player A                   Signaling Server                Player B
+   │                              │                            │
+   ├── WS connect ───────────────►│ (queued)                   │
+   │                              │◄──────────── WS connect ───┤
+   │                              │ pair → open room, assign   │
+   │◄── "matched" {offerer} ──────┤── "matched" {answerer} ───►│
    │                              │                            │
    ├── create PeerConnection      │                            │
    ├── create DataChannel("input")│                            │
@@ -104,8 +126,9 @@ If the peer does not respond within `HANDSHAKE_TIMEOUT_MS` (5 s), the initiating
 surfaces "Peer did not respond to start handshake." on the UI and closes the
 connection — no half-started simulation.
 
-The signaling server itself is a pure message passthrough; no server-side changes were
-required to add the new message types.
+Beyond matchmaking (pairing players into rooms and assigning roles), the signaling server
+is a pure message passthrough: it relays `ready`/`start` between the two peers of a room
+without interpreting them.
 
 ## Architecture Integration
 

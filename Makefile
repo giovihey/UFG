@@ -1,4 +1,4 @@
-.PHONY: signaling game channel host all clean down
+.PHONY: signaling game channel all clean down
 
 ifeq ($(OS), Windows_NT)
 DETECTED_OS := Windows
@@ -16,13 +16,8 @@ all: signaling game
 signaling:
 	docker compose up --build -d
 
-host:
-ifeq ($(DETECTED_OS), Windows)
-	set "PATH=$(WIN_RUNTIME_PATH);%PATH%" && cd game && .\gradlew run --args='--host'
-else
-	cd game && ./gradlew run --args='--host'
-endif
-
+# Launch a game client. Roles are assigned by the matchmaking server, so just run two
+# clients (here or on two machines) — the first to queue becomes host, the second joins.
 game:
 ifeq ($(DETECTED_OS), Windows)
 	set "PATH=$(WIN_RUNTIME_PATH);%PATH%" && cd game && .\gradlew run

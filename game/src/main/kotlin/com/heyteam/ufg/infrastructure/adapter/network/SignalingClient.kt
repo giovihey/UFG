@@ -17,6 +17,11 @@ class SignalingClient(
     private lateinit var ws: WebSocketClient
     private var descriptionSent = false
 
+    // Matchmaking primitive. The server pairs us with an opponent and assigns a role:
+    // "offerer" creates the WebRTC offer (and later drives the start handshake), "answerer"
+    // responds. Completed exactly once when the server's "matched" message arrives.
+    private val matchedAsOfferer = CompletableDeferred<Boolean>()
+
     // Start-frame handshake primitives. Completed exactly once when the peer signals
     // readiness / a start-at timestamp. Consumers await them via the suspend accessors.
     private val peerReady = CompletableDeferred<Unit>()
@@ -33,10 +38,12 @@ class SignalingClient(
                     log.debug { "Signaling received: $message" }
                     val json = JSONObject(message)
                     when (json.getString("type")) {
+                        "matched" -> matchedAsOfferer.complete(json.getString("role") == "offerer")
                         "sdp" -> bridge.setRemoteDescription(json.getString("sdp"))
                         "ice" -> bridge.addIceCandidate(json.getString("candidate"), json.getString("mid"))
                         "ready" -> peerReady.complete(Unit)
                         "start" -> startAt.complete(json.getLong("at"))
+                        "peer_left" -> log.warn { "Signaling: opponent left the room" }
                     }
                 }
 
@@ -107,6 +114,13 @@ class SignalingClient(
         }
         ws.send(JSONObject().put("type", "start").put("at", atEpochMs).toString())
     }
+
+    /**
+     * Suspends until the matchmaking server pairs us with an opponent, returning `true` if
+     * this client was assigned the offerer (host) role. Cancellable, so the matchmaking
+     * "cancel" button can abandon the wait while no opponent is available.
+     */
+    suspend fun awaitMatch(): Boolean = matchedAsOfferer.await()
 
     /** Suspends until the peer has sent `ready`. */
     suspend fun awaitPeerReady() = peerReady.await()

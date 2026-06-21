@@ -48,7 +48,6 @@ const val SIGNALING_URL = "ws://localhost:8080/ws"
 const val STUN_SERVER = "stun:stun.l.google.com:19302"
 
 fun main(args: Array<String>) {
-    val isHost = args.contains("--host")
     val fakeLag =
         args
             .firstOrNull { it.startsWith("--fake-lag=") }
@@ -84,7 +83,7 @@ fun main(args: Array<String>) {
     composeAdapter.onGameStart = { _ ->
         matchmakingJob =
             scope.launch(Dispatchers.IO) {
-                onGameStart(composeAdapter, isHost, fakeLag, sessionStore)
+                onGameStart(composeAdapter, fakeLag, sessionStore)
             }
     }
 
@@ -111,7 +110,6 @@ fun main(args: Array<String>) {
  */
 private suspend fun onGameStart(
     composeAdapter: ComposeAdapter,
-    isHost: Boolean,
     fakeLag: Int,
     sessionStore: SessionStore,
 ) {
@@ -120,21 +118,21 @@ private suspend fun onGameStart(
     startPracticeLoop(composeAdapter, practiceLoop)
 
     try {
-        val (networkPort, signalingClient, networkAdapter) =
-            setupNetworkAndSignaling(isHost, fakeLag, composeAdapter, practiceLoop)
+        val session = setupNetworkAndSignaling(fakeLag, composeAdapter, practiceLoop)
+        val isHost = session.isHost
 
         practiceLoop.stop()
 
         val startAt =
-            runHandshake(signalingClient, isHost) ?: return run {
+            runHandshake(session.signalingClient, isHost) ?: return run {
                 composeAdapter.showError("Peer did not respond to start handshake.")
-                networkAdapter.close()
+                session.networkAdapter.close()
             }
 
         showVsSplashAndWait(composeAdapter, sessionStore, isHost, startAt)
 
-        val realLoop = createRealGameLoop(composeAdapter, characters, networkPort, isHost)
-        startRealGameLoop(composeAdapter, realLoop, networkAdapter, startAt)
+        val realLoop = createRealGameLoop(composeAdapter, characters, session.networkPort, isHost)
+        startRealGameLoop(composeAdapter, realLoop, session.networkAdapter, startAt)
     } finally {
         // Guaranteed to run on success, error, OR coroutine cancellation (cancel button).
         // Calling stop() twice is safe — it just sets isRunning = false.
@@ -165,12 +163,18 @@ private fun startPracticeLoop(
     log.info { "Practice loop started, searching for peer..." }
 }
 
+private data class NetworkSession(
+    val networkPort: NetworkPort,
+    val signalingClient: SignalingClient,
+    val networkAdapter: NetworkAdapter,
+    val isHost: Boolean,
+)
+
 private suspend fun setupNetworkAndSignaling(
-    isHost: Boolean,
     fakeLag: Int,
     composeAdapter: ComposeAdapter,
     practiceLoop: GameLoop,
-): Triple<NetworkPort, SignalingClient, NetworkAdapter> {
+): NetworkSession {
     val bridge = WebRtcBridge()
     val networkAdapter = NetworkAdapter(bridge)
     val networkPort = if (fakeLag > 0) FakeLagInputPort(networkAdapter, fakeLag) else networkAdapter
@@ -192,7 +196,12 @@ private suspend fun setupNetworkAndSignaling(
         error("Signaling connection failed")
     }
 
-    log.info { "Signaling ready. isHost=$isHost" }
+    // Matchmaking: wait for the server to pair us with an opponent and assign a role. This
+    // can take arbitrarily long (no opponent in queue yet) — the practice loop keeps the
+    // player busy, and the matchmaking "cancel" button cancels this coroutine.
+    log.info { "Signaling ready. Waiting for an opponent..." }
+    val isHost = signalingClient.awaitMatch()
+    log.info { "Matched by server. isHost=$isHost" }
     if (isHost) bridge.createOffer()
 
     while (!networkAdapter.isConnected()) {
@@ -200,7 +209,7 @@ private suspend fun setupNetworkAndSignaling(
     }
     log.info { "Peer connected. Running start-frame handshake..." }
 
-    return Triple(networkPort, signalingClient, networkAdapter)
+    return NetworkSession(networkPort, signalingClient, networkAdapter, isHost)
 }
 
 private suspend fun showVsSplashAndWait(
