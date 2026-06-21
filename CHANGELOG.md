@@ -1,3 +1,9 @@
+## [3.10.0](https://github.com/giovihey/UFG/compare/v3.9.0...v3.10.0) (2026-06-21)
+
+### Features
+
+* matchmaking with queue ([28e0133](https://github.com/giovihey/UFG/commit/28e01339df4a5623ebb73b588cb7c16590217f4e))
+
 ## [3.9.0](https://github.com/giovihey/UFG/compare/v3.8.0...v3.9.0) (2026-06-18)
 
 ### Features
