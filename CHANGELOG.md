@@ -1,3 +1,10 @@
+## [3.10.2](https://github.com/giovihey/UFG/compare/v3.10.1...v3.10.2) (2026-06-21)
+
+### Bug Fixes
+
+* remove all the bullshit and add a proper report structure ([23e0769](https://github.com/giovihey/UFG/commit/23e0769cf2ec960ffc58b42b9826d4f2e84c1b19))
+* the ci should not run everytime ([dc0a1de](https://github.com/giovihey/UFG/commit/dc0a1de6a1845bc1a65dc1168562d08726307603))
+
 ## [3.10.1](https://github.com/giovihey/UFG/compare/v3.10.0...v3.10.1) (2026-06-21)
 
 ### Bug Fixes
