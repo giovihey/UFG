@@ -1,0 +1,22 @@
+.docname {UFG Report}
+.docdescription {Report for the Distributed System course project}
+.doctype {paged}
+.doclang {English}
+.theme {paperwhite} layout:{latex}
+
+.docauthors
+    - Giovanni Paradisi
+    - Mounir Samite
+
+.pageformat size:{A4} margin:{2.5cm}
+
+.pagemargin {bottomcenter}
+    .currentpage / .totalpages
+
+.pagemargin {topright}
+    .lastheading depth:{1}
+
+.numbering
+    - headings: 1.1.1
+    - figures: 1.1
+    - tables: 1.1

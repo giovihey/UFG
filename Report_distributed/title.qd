@@ -1,0 +1,22 @@
+.align {center}
+    .whitespace {2cm}
+
+    #! UFG Report
+
+    .whitespace {0.5cm}
+
+    **Paradisi Giovanni**
+
+    **Samite Mounir**
+
+    .whitespace {1.5cm}
+
+    Master Degree in *Ingegneria e Scienze Informatiche* 
+
+    University of Bologna
+
+    .whitespace {1cm}
+
+    Course: **Distributed Systems**
+
+.pagebreak
