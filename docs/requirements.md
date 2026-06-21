@@ -53,6 +53,14 @@ The game renders players, hitboxes (during active frames), health bars, and the 
 
 - Acceptance: resizing the window scales the game area proportionally.
 
+### FR8: Matchmaking
+Players are paired automatically by the signaling server. A player connects, is placed in a
+queue, and is matched with the next player to connect. The server assigns roles (offerer /
+answerer) and isolates each pair in its own room, so many matches can run at once.
+
+- Acceptance: launching three or more clients results in the first two playing together and
+  the third waiting in queue until a fourth arrives; no client uses a host/join flag.
+
 ## Non-Functional Requirements
 
 ### NFR1: Determinism
@@ -81,7 +89,7 @@ All game logic can be tested without a GUI, network, or OS-level dependencies.
 |---------|----------|-----------|
 | **Transparency** | Partial | The P2P connection is hidden from gameplay, but connection setup (host/join) is visible to the user |
 | **Fault tolerance** | Limited | If a peer disconnects, the game stalls (lockstep). Graceful shutdown is implemented but no reconnection |
-| **Scalability** | No | 1v1 only. No matchmaking server, no spectators. P2P doesn't scale beyond 2 peers for this use case |
+| **Scalability** | Partial | Each match is 1v1 P2P, but the signaling server runs auto-queue matchmaking and opens a fresh room per pair, so an unbounded number of concurrent matches are supported. No spectators; P2P doesn't scale beyond 2 peers *within* a single match |
 | **Security** | Partial | WebRTC encrypts the data channel (DTLS). No authentication — anyone with the signaling server URL can connect |
 | **Performance** | Critical | Sub-frame latency required. P2P eliminates server hops. Fixed timestep ensures consistent simulation speed |
 | **Consistency** | Critical | Both peers must agree on game state every frame. Achieved through deterministic lockstep simulation |
