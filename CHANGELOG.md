@@ -1,3 +1,9 @@
+## [3.10.1](https://github.com/giovihey/UFG/compare/v3.10.0...v3.10.1) (2026-06-21)
+
+### Bug Fixes
+
+* report is better ([56eed3a](https://github.com/giovihey/UFG/commit/56eed3af61dd514776ad75833ce2e1206ca37a1e))
+
 ## [3.10.0](https://github.com/giovihey/UFG/compare/v3.9.0...v3.10.0) (2026-06-21)
 
 ### Features
