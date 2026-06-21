@@ -2,8 +2,22 @@ name: ci.yml
 on:
   push:
     branches: ["**"]
+    # Skip the code CI when a commit touches only docs / the report / markdown.
+    # If a commit also changes any non-ignored file, the CI still runs.
+    paths-ignore:
+      - "docs/**"
+      - "report_ds/**"
+      - "site/**"
+      - "mkdocs.yml"
+      - "**.md"
   pull_request:
     branches: ["**"]
+    paths-ignore:
+      - "docs/**"
+      - "report_ds/**"
+      - "site/**"
+      - "mkdocs.yml"
+      - "**.md"
 
 jobs:
   game:
