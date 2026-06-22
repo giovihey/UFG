@@ -20,5 +20,10 @@ sealed class Screen {
         val p2Name: String,
     ) : Screen()
 
+    data class MatchEnd(
+        val winnerId: Int,
+        val winnerName: String,
+    ) : Screen()
+
     object Game : Screen()
 }

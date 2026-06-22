@@ -1,5 +1,6 @@
 package com.heyteam.ufg.infrastructure.adapter.gui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -23,6 +24,7 @@ import com.heyteam.ufg.domain.component.Screen
 import com.heyteam.ufg.domain.entity.World
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.authScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.gameScreen
+import com.heyteam.ufg.infrastructure.adapter.gui.screen.matchEndScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.menuScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.practiceScreen
 import com.heyteam.ufg.infrastructure.adapter.gui.screen.titleScreen
@@ -41,6 +43,7 @@ class ComposeAdapter :
     var onGameStart: (isHost: Boolean) -> Unit = {}
     var onCancelMatchmaking: () -> Unit = {}
     var onShutdown: (() -> Unit)? = null
+    var onBackToMenu: () -> Unit = {}
 
     private var worldState by mutableStateOf<World?>(null)
 
@@ -91,45 +94,58 @@ class ComposeAdapter :
                     }
                 },
             ) {
-                when (val screen = currentScreen) {
-                    is Screen.Title -> {
-                        titleScreen(onPlay = { onPlayPressed() })
-                    }
-
-                    is Screen.Auth -> {
-                        authScreen(
-                            errorMessage = errorMessage,
-                            onLogin = { u, p -> onLogin(u, p) },
-                            onRegister = { u, p -> onRegister(u, p) },
-                        )
-                    }
-
-                    is Screen.Menu -> {
-                        menuScreen(
-                            onPlay = { onGameStart(true) }, // temporary — lobby replaces this
-                            onOptions = { /* future */ },
-                            onHelp = { /* future */ },
-                        )
-                    }
-
-                    // The practice loop writes to worldState just like the real game loop,
-                    // so rendering is identical — only the overlay differs.
-                    is Screen.Practice -> {
-                        val world = worldState
-                        if (world != null) practiceScreen(world, onCancel = { onCancelMatchmaking() })
-                    }
-
-                    is Screen.VsSplash -> {
-                        vsSplashScreen(p1Name = screen.p1Name, p2Name = screen.p2Name)
-                    }
-
-                    is Screen.Game -> {
-                        val world = worldState
-                        if (world != null) gameScreen(world)
-                    }
-                }
+                screenContent()
             }
         }
+
+    @Composable
+    private fun screenContent() {
+        when (val screen = currentScreen) {
+            is Screen.Title -> {
+                titleScreen(onPlay = { onPlayPressed() })
+            }
+
+            is Screen.Auth -> {
+                authScreen(
+                    errorMessage = errorMessage,
+                    onLogin = { u, p -> onLogin(u, p) },
+                    onRegister = { u, p -> onRegister(u, p) },
+                )
+            }
+
+            is Screen.Menu -> {
+                menuScreen(
+                    onPlay = { onGameStart(true) }, // temporary — lobby replaces this
+                    onOptions = { /* future */ },
+                    onHelp = { /* future */ },
+                )
+            }
+
+            // The practice loop writes to worldState just like the real game loop,
+            // so rendering is identical — only the overlay differs.
+            is Screen.Practice -> {
+                val world = worldState
+                if (world != null) practiceScreen(world, onCancel = { onCancelMatchmaking() })
+            }
+
+            is Screen.VsSplash -> {
+                vsSplashScreen(p1Name = screen.p1Name, p2Name = screen.p2Name)
+            }
+
+            is Screen.Game -> {
+                val world = worldState
+                if (world != null) gameScreen(world)
+            }
+
+            is Screen.MatchEnd -> {
+                matchEndScreen(
+                    winnerId = screen.winnerId,
+                    winnerName = screen.winnerName,
+                    onBackToMenu = { onBackToMenu() },
+                )
+            }
+        }
+    }
 
     override fun press(button: GameButton) {
         currentBitMask = currentBitMask or button.bit

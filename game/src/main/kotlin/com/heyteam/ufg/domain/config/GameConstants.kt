@@ -28,8 +28,13 @@ object GameConstants {
     const val MS_PER_SECOND = 1000.0
     const val MILLIS_FOR_FPS = 6L
 
-    // Game Loop
-    const val ROUND_END_DELAY_MS = 2000L // 2 seconds
+    // Spawn / round reset
+    const val P1_START_X = 150.0
+    const val P2_START_X = 600.0
+
+    // Match rules
+    const val ROUNDS_TO_WIN = 2
+    const val ROUND_TIMER_SECONDS = 99
 
     const val FRAMES_PER_SECOND = 60L
 

@@ -17,6 +17,8 @@ class GameLoop(
     private val networkPort: NetworkPort,
     private val isHost: Boolean,
 ) {
+    var onMatchEnd: (winnerId: Int) -> Unit = {}
+
     @Volatile private var isRunning = true
 
     private val localPlayerId = if (isHost) 1 else 2
@@ -59,12 +61,25 @@ class GameLoop(
 
             if (!isRunning) break
 
-            renderPort.render(gameEngine.getWorld())
-            if (gameEngine.getWorld().gameStatus == GameStatus.ROUND_END) {
+            val world = gameEngine.getWorld()
+            renderPort.render(world)
+
+            if (world.gameStatus == GameStatus.MATCH_END) {
                 isRunning = false
-                log.info { "Match is over" }
-                renderPort.shutdown()
             }
+        }
+
+        // Fire onMatchEnd exactly once, AFTER the loop — never from inside it. This is the
+        // single notification point regardless of how the loop exited, which matters for
+        // the teardown race: the peer that reaches the deciding frame first navigates away
+        // and (eventually) closes the channel. We must not let the disconnect path swallow
+        // a match that has, in fact, already ended on this peer too.
+        val finalWorld = gameEngine.getWorld()
+        if (finalWorld.gameStatus == GameStatus.MATCH_END) {
+            log.info { "Match is over. Round wins: ${finalWorld.roundWins}" }
+            // Winner = the player with the most round wins.
+            val winnerId = finalWorld.roundWins.maxByOrNull { it.value }?.key ?: 1
+            onMatchEnd(winnerId)
         }
     }
 
