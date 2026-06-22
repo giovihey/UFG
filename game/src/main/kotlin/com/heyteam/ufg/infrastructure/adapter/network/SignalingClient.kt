@@ -24,7 +24,9 @@ class SignalingClient(
 
     // Start-frame handshake primitives. Completed exactly once when the peer signals
     // readiness / a start-at timestamp. Consumers await them via the suspend accessors.
-    private val peerReady = CompletableDeferred<Unit>()
+    // peerReady carries the opponent's display name, piggybacked on the `ready` message so
+    // each player can show the other's name on the VS splash and match-end screens.
+    private val peerReady = CompletableDeferred<String>()
     private val startAt = CompletableDeferred<Long>()
 
     fun connect() {
@@ -41,7 +43,7 @@ class SignalingClient(
                         "matched" -> matchedAsOfferer.complete(json.getString("role") == "offerer")
                         "sdp" -> bridge.setRemoteDescription(json.getString("sdp"))
                         "ice" -> bridge.addIceCandidate(json.getString("candidate"), json.getString("mid"))
-                        "ready" -> peerReady.complete(Unit)
+                        "ready" -> peerReady.complete(json.optString("name", ""))
                         "start" -> startAt.complete(json.getLong("at"))
                         "peer_left" -> log.warn { "Signaling: opponent left the room" }
                     }
@@ -94,13 +96,16 @@ class SignalingClient(
         }
     }
 
-    /** Tell the peer we are ready to start the match. Idempotent on retry. */
-    fun sendReady() {
+    /**
+     * Tell the peer we are ready to start the match, carrying our display [name] so the
+     * opponent can show it on screen. Idempotent on retry.
+     */
+    fun sendReady(name: String) {
         if (!ws.isOpen) {
             log.warn { "Cannot send ready, signaling WebSocket is not open" }
             return
         }
-        ws.send(JSONObject().put("type", "ready").toString())
+        ws.send(JSONObject().put("type", "ready").put("name", name).toString())
     }
 
     /**
@@ -122,8 +127,8 @@ class SignalingClient(
      */
     suspend fun awaitMatch(): Boolean = matchedAsOfferer.await()
 
-    /** Suspends until the peer has sent `ready`. */
-    suspend fun awaitPeerReady() = peerReady.await()
+    /** Suspends until the peer has sent `ready`, returning the opponent's display name. */
+    suspend fun awaitPeerReady(): String = peerReady.await()
 
     /** Suspends until the peer has sent `start`, returning the agreed start epoch ms. */
     suspend fun awaitStartAt(): Long = startAt.await()

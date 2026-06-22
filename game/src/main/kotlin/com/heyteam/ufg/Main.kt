@@ -121,17 +121,20 @@ private suspend fun onGameStart(
 
         practiceLoop.stop()
 
-        val startAt =
-            runHandshake(session.signalingClient, isHost) ?: return run {
+        val localName = sessionStore.get()?.username ?: if (isHost) "P1" else "P2"
+
+        val handshake =
+            runHandshake(session.signalingClient, isHost, localName) ?: return run {
                 composeAdapter.showError("Peer did not respond to start handshake.")
                 session.networkAdapter.close()
             }
+        val startAt = handshake.startAt
 
-        showVsSplashAndWait(composeAdapter, sessionStore, isHost, startAt)
+        // The names are exchanged during the handshake; the host is always P1, the guest P2.
+        val p1Name = if (isHost) localName else handshake.peerName
+        val p2Name = if (isHost) handshake.peerName else localName
 
-        val localName = sessionStore.get()?.username ?: if (isHost) "P1" else "P2"
-        val p1Name = if (isHost) localName else "P1"
-        val p2Name = if (isHost) "P2" else localName
+        showVsSplashAndWait(composeAdapter, startAt, p1Name, p2Name)
 
         val realLoop = createRealGameLoop(composeAdapter, characters, session.networkPort, isHost)
         realLoop.onMatchEnd = { winnerId ->
@@ -225,14 +228,12 @@ private suspend fun setupNetworkAndSignaling(
 
 private suspend fun showVsSplashAndWait(
     composeAdapter: ComposeAdapter,
-    sessionStore: SessionStore,
-    isHost: Boolean,
     startAt: Long,
+    p1Name: String,
+    p2Name: String,
 ) {
-    val localName = sessionStore.get()?.username ?: "P1"
-    val remoteName = if (isHost) "P2" else "P1"
     val splashShownAt = System.currentTimeMillis()
-    composeAdapter.navigate(Screen.VsSplash(p1Name = localName, p2Name = remoteName))
+    composeAdapter.navigate(Screen.VsSplash(p1Name = p1Name, p2Name = p2Name))
 
     val targetMs = maxOf(startAt, splashShownAt + VS_SPLASH_MIN_MS)
     val sleepMs = (targetMs - System.currentTimeMillis()).coerceAtLeast(0L)
@@ -276,31 +277,42 @@ private fun startRealGameLoop(
     composeAdapter.navigate(Screen.Game)
 }
 
+/** Outcome of the start-frame handshake: the agreed start epoch and the opponent's name. */
+private data class HandshakeResult(
+    val startAt: Long,
+    val peerName: String,
+)
+
 /**
- *  1. Both peers send `ready`.
- *  2. Both peers wait for the peer's `ready`.
+ *  1. Both peers send `ready`, piggybacking their display name.
+ *  2. Both peers wait for the peer's `ready` (and learn the peer's name).
  *  3. Host picks `at = now + START_BUFFER_MS` and broadcasts `start`. Guest awaits it.
  *
  */
 private suspend fun runHandshake(
     signalingClient: SignalingClient,
     isHost: Boolean,
-): Long? {
-    signalingClient.sendReady()
-    val peerReady = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { signalingClient.awaitPeerReady() }
-    if (peerReady == null) {
-        log.warn { "Handshake timeout: peer never sent 'ready'" }
-        return null
-    }
-    return if (isHost) {
-        val at = System.currentTimeMillis() + START_BUFFER_MS
-        signalingClient.sendStart(at)
-        at
-    } else {
-        withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { signalingClient.awaitStartAt() }
+    localName: String,
+): HandshakeResult? {
+    signalingClient.sendReady(localName)
+    val peerName =
+        withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { signalingClient.awaitPeerReady() }
             ?: run {
-                log.warn { "Handshake timeout: host never sent 'start'" }
-                null
+                log.warn { "Handshake timeout: peer never sent 'ready'" }
+                return null
             }
-    }
+    val resolvedPeerName = peerName.ifBlank { if (isHost) "P2" else "P1" }
+    val startAt =
+        if (isHost) {
+            val at = System.currentTimeMillis() + START_BUFFER_MS
+            signalingClient.sendStart(at)
+            at
+        } else {
+            withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) { signalingClient.awaitStartAt() }
+        }
+    return startAt?.let { HandshakeResult(it, resolvedPeerName) }
+        ?: run {
+            log.warn { "Handshake timeout: host never sent 'start'" }
+            null
+        }
 }
