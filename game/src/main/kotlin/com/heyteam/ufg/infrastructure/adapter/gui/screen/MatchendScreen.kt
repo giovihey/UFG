@@ -13,16 +13,10 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private const val COLOR_P1_WIN_ARGB = 0xFFEF5350L
-private const val COLOR_P2_WIN_ARGB = 0xFF42A5F5L
-
-private val p1WinColor = Color(COLOR_P1_WIN_ARGB)
-private val p2WinColor = Color(COLOR_P2_WIN_ARGB)
+import com.heyteam.ufg.infrastructure.adapter.gui.UiTheme
 
 @Composable
 fun matchEndScreen(
@@ -30,10 +24,10 @@ fun matchEndScreen(
     winnerName: String,
     onBackToMenu: () -> Unit,
 ) {
-    val winnerColor = if (winnerId == 1) p1WinColor else p2WinColor
+    val winnerColor = if (winnerId == 1) UiTheme.p1 else UiTheme.p2
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
+        modifier = Modifier.fillMaxSize().background(UiTheme.background),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -51,11 +45,11 @@ fun matchEndScreen(
 
             Button(
                 onClick = onBackToMenu,
-                colors = ButtonDefaults.buttonColors(backgroundColor = Color.DarkGray),
+                colors = ButtonDefaults.buttonColors(backgroundColor = UiTheme.buttonBg),
             ) {
                 Text(
                     text = "Back to Menu",
-                    color = Color.White,
+                    color = UiTheme.text,
                     fontSize = 20.sp,
                 )
             }
