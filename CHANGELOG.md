@@ -1,3 +1,9 @@
+## [3.11.0](https://github.com/giovihey/UFG/compare/v3.10.2...v3.11.0) (2026-06-22)
+
+### Features
+
+* add the round logic in the game ([0283fc5](https://github.com/giovihey/UFG/commit/0283fc5f6988504810ee2fc8e6f5b27e00e1e1c8))
+
 ## [3.10.2](https://github.com/giovihey/UFG/compare/v3.10.1...v3.10.2) (2026-06-21)
 
 ### Bug Fixes
