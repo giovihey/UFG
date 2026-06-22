@@ -35,6 +35,7 @@ object GameConstants {
     // Match rules
     const val ROUNDS_TO_WIN = 2
     const val ROUND_TIMER_SECONDS = 99
+    const val PRACTICE_ROUND_TIMER = Int.MAX_VALUE
 
     const val FRAMES_PER_SECOND = 60L
 

@@ -30,7 +30,12 @@ object GameLogic {
     }
 
     private fun applyGameRules(world: World): World {
-        if (world.gameStatus != GameStatus.RUNNING) return world
+        // Guard: skip if not running or in practice mode
+        if (world.gameStatus != GameStatus.RUNNING ||
+            world.roundTimer == GameConstants.PRACTICE_ROUND_TIMER
+        ) {
+            return world
+        }
 
         // Tick the round timer once per second.
         val updatedTimer =
