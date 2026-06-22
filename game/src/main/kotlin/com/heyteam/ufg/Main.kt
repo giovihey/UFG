@@ -28,8 +28,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 private val log = KotlinLogging.logger {}
 
-const val P1_START_X = 150.0
-const val P2_START_X = 600.0
 const val POLL_INTERVAL_MS = 100L
 const val P1_CHARACTER_ID = 2 // rushdown
 const val P2_CHARACTER_ID = 3 // heavy
@@ -131,7 +129,20 @@ private suspend fun onGameStart(
 
         showVsSplashAndWait(composeAdapter, sessionStore, isHost, startAt)
 
+        val localName = sessionStore.get()?.username ?: if (isHost) "P1" else "P2"
+        val p1Name = if (isHost) localName else "P1"
+        val p2Name = if (isHost) "P2" else localName
+
         val realLoop = createRealGameLoop(composeAdapter, characters, session.networkPort, isHost)
+        realLoop.onMatchEnd = { winnerId ->
+            // Do NOT close the channel here. The peer that reaches the deciding frame first
+            // would otherwise drop the socket while the other peer is still one frame short of
+            // its own MATCH_END — that peer's loop sees the disconnect, bails, and freezes on
+            // the game screen. Keep the channel open until the player leaves the end screen so
+            // both sides can finish simulating and both show the result.
+            val winnerName = if (winnerId == 1) p1Name else p2Name
+            composeAdapter.navigate(Screen.MatchEnd(winnerId, winnerName))
+        }
         startRealGameLoop(composeAdapter, realLoop, session.networkAdapter, startAt)
     } finally {
         // Guaranteed to run on success, error, OR coroutine cancellation (cancel button).
@@ -252,6 +263,12 @@ private fun startRealGameLoop(
     composeAdapter.onShutdown = {
         realLoop.stop()
         networkAdapter.close()
+    }
+
+    composeAdapter.onBackToMenu = {
+        // Match is fully over on both peers by now — safe to tear down the connection.
+        networkAdapter.close()
+        composeAdapter.navigate(Screen.Menu)
     }
 
     log.info { "Starting real game loop at epoch=$startAt" }
