@@ -1,3 +1,9 @@
+## [3.11.1](https://github.com/giovihey/UFG/compare/v3.11.0...v3.11.1) (2026-06-22)
+
+### Bug Fixes
+
+* now they display each others name ([#33](https://github.com/giovihey/UFG/issues/33)) ([8a236e2](https://github.com/giovihey/UFG/commit/8a236e2282106738a62bf878b2091062995e93b1))
+
 ## [3.11.0](https://github.com/giovihey/UFG/compare/v3.10.2...v3.11.0) (2026-06-22)
 
 ### Features
