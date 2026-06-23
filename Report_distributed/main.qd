@@ -6,3 +6,4 @@
 
 .includeall
     - sections/introduction.qd
+    - sections/concept.qd

@@ -1,0 +1,104 @@
+# Concept
+
+UFG is a distributed real-time 2D fighting game. Two players, each on their own
+machine, connect peer-to-peer and fight in real time: every frame each client
+samples its local input, exchanges it with the opponent, and runs the same
+deterministic simulation. Two small backend services support the game without
+ever taking part in the fight — one for authentication, one for matchmaking and
+connection setup.
+
+.mermaid caption:{High-level view of the system.}
+    flowchart LR
+        A[Player A client] -->|register/login| Auth[Auth service]
+        B[Player B client] -->|register/login| Auth
+        Auth --> DB[(PostgreSQL)]
+        A -->|queue, SDP, ICE| Sig[Signaling service]
+        B -->|queue, SDP, ICE| Sig
+        A ==>|WebRTC: per-frame inputs| B
+
+## Product Type
+
+The main product is a **desktop application with a GUI**, written in Kotlin with
+Compose Desktop. It bundles the user-facing screens (login, menu, matchmaking,
+fight, match-end) and the deterministic simulation that runs the match.
+
+It is supported by two **web services**, both written in Go:
+
+- an **authentication service**, backed by PostgreSQL, that manages accounts and
+  issues JWT session tokens;
+- a **signaling service** that pairs players over WebSocket and relays the
+  WebRTC setup messages between exactly two matched peers.
+
+There is no public CLI or reusable library: scripts and the Makefile are only
+developer conveniences.
+
+## Use Case Collection
+
+### Where are the users?
+
+On desktop computers (macOS, Linux, or Windows), either on the same local
+network or anywhere across the internet. WebRTC handles NAT traversal through a
+public STUN server, so players behind a home router connect directly without
+manual port forwarding.
+
+### When and how often do they interact?
+
+Interaction has two rhythms:
+
+- **Before a match** it is occasional: the user logs in, presses *Play*, waits in
+  matchmaking, and may cancel. A local practice loop keeps the wait interactive.
+- **During a match** it is continuous: the game targets 60 FPS, so each client
+  samples input, simulates, and exchanges inputs with the opponent roughly every
+  16 ms.
+
+### How do they interact? Which devices?
+
+Through the Compose Desktop GUI with mouse and keyboard. Menus use the mouse;
+gameplay uses the keyboard.
+
+| Key       | Action            |
+| --------- | ----------------- |
+| `A` / `D` | move left / right |
+| `W` / `S` | directional input |
+| `Space`   | jump              |
+| `P`       | punch / jab       |
+
+The screen flow is:
+
+.mermaid caption:{Client screen flow.}
+    stateDiagram-v2
+        [*] --> Auth
+        Auth --> Menu: login / register
+        Menu --> Practice: Play
+        Practice --> Menu: Cancel
+        Practice --> Game: peer connected
+        Game --> MatchEnd: winner decided
+        MatchEnd --> Menu: Back
+
+### Does the system store user data? Which? Where?
+
+Very little is persisted. Only the authentication service holds durable data.
+
+| Data                          | Where                | Lifetime         |
+| ----------------------------- | -------------------- | ---------------- |
+| Username, user id             | PostgreSQL           | Persistent       |
+| Password hash (bcrypt)        | PostgreSQL           | Persistent       |
+| JWT session token             | Client memory        | Until app closes |
+| Matchmaking queue and rooms   | Signaling memory     | Until matched    |
+| Game world, inputs, snapshots | Client memory        | One match        |
+
+No match history, rankings, or replays are stored.
+
+### Roles
+
+There is one business role, the **player**: create an account, log in, queue,
+play, and return to the menu. No admin, moderator, or spectator role exists.
+
+During connection setup two technical peer roles appear:
+
+- **Host (offerer)** — the player already waiting; creates the WebRTC offer and
+  picks the shared start time.
+- **Joiner (answerer)** — the player who joins next; answers the offer.
+
+Once the connection is open the two peers are symmetric: neither is an
+authoritative server, and combat is computed identically on both sides.
