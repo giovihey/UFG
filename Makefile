@@ -1,4 +1,4 @@
-.PHONY: signaling game channel all clean down
+.PHONY: signaling game channel all clean down bench-signaling
 
 ifeq ($(OS), Windows_NT)
 DETECTED_OS := Windows
@@ -39,6 +39,12 @@ else
 	cd game && ./gradlew build && ./gradlew test
 endif
 
+
+# Load-test the signaling server. Start it first with `make signaling`
+# (Docker) or `cd signaling_server && go run .`. Pass options via BENCH_ARGS,
+# e.g. make bench-signaling BENCH_ARGS="-sweep 1,5 -pings 5".
+bench-signaling:
+	cd benchmarks/signaling && go run . $(BENCH_ARGS)
 
 down:
 	docker compose down

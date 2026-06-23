@@ -12,6 +12,7 @@ nav:
       - Logging: logging.md
       - Implementation: implementation.md
       - Validation: validation.md
+      - Benchmarks: benchmarks.md
       - Deployment: deployment.md
       - User Guide: user_guide.md
       - Self-evaluation: self_evaluation/self_evaluation.md
