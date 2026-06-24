@@ -1,7 +1,111 @@
 # Validation
 
+Validation checks that the system satisfies the requirements of the analysis
+chapter. The strategy follows directly from the architecture: because the design
+pushed all the hard logic into a **pure, deterministic domain** (NFR1, NFR4),
+the bulk of the system can be tested automatically with no GUI, socket, or clock;
+the parts that genuinely depend on the outside world (rendering, native WebRTC,
+two-machine play) are validated manually.
+
 ## Automatic Testing
 
+The automated suite is roughly **85 Kotest cases** plus two native WebRTC
+harnesses. It is organized in four tiers.
+
+### Unit tests — domain logic
+
+Each domain system is exercised in isolation as a pure function. These are the
+acceptance tests for the in-match functional requirements (FR4–FR6).
+
+| Spec | Cases | Covers | Requirement |
+| ---- | ----- | ------ | ----------- |
+| `InputSystemSpec` | 13 | Horizontal movement, grounded jump (no double jump), diagonal/opposing input, hitstun blocks input | FR4, FR6 |
+| `PlayerStateSpec` | 12 | IDLE / WALKING / JUMPING / ATTACKING / HITSTUN transitions, floor reset | FR4, FR6 |
+| `PhysicsSystemSpec` | 9 | Gravity, terminal velocity, floor collision, stage-bound clamping, knockback | FR4, FR6 |
+| `AttackSystemSpec` | 6 | Frame advance, STARTUP → ACTIVE → RECOVERY, attack expiry | FR4 |
+| `CrouchSpec` / `FacingSpec` | 7 / 5 | Crouch state, facing the opponent | FR4 |
+| `HitDetectionSystemSpec` | 6 | No hit in STARTUP/RECOVERY, hit in ACTIVE, out-of-range miss, no double hit | FR5 |
+| `RectangleSpec` | 3 | AABB overlap, separation, edge/corner non-overlap | FR5 |
+| `HealthSpec` | 1 | Damage reduces HP, clamped at zero | FR5 |
+
+### Determinism regression — the cross-peer guarantee
+
+Rollback only works if both machines compute bit-identical results from identical
+inputs. Two specs encode that guarantee *locally*, so it is checked on every
+build rather than only when two machines are connected (NFR1, FR8).
+
+- **`DeterminismSpec`** (2) runs `GameLogic.step` twice over fixed 600- and
+  3600-frame scripted input sequences and asserts per-frame state matches
+  exactly. Any accidental non-determinism (an `Instant.now()`, a `Math.random`,
+  an unordered `HashSet`) fails the build.
+- **`WorldHashSpec`** (6) checks the canonical hash used for desync detection:
+  determinism, sensitivity to single-ULP position / frame / health changes,
+  and insensitivity to map insertion order.
+
+### Integration — netcode under simulated latency
+
+`RollbackServiceSpec` (5) is the key interaction test. It builds a fake
+`DelayedRemote` transport that runs the *peer's* identical `RollbackService` and
+adds configurable network delay, then asserts:
+
+| Property | What it proves | Requirement |
+| -------- | -------------- | ----------- |
+| Zero-delay correctness | With no delay, output equals a zero-latency reference run | FR8 |
+| Convergence under delay | Sweeping delay ∈ {1,2,4,6}, the run still reaches identical final state after many rewinds | FR8, NFR3 |
+| Stalls when ahead | A peer pinned behind causes exactly `syncThreshold + 1` advances then stalls | NFR3 |
+| Bounded advantage | Against a constant deficit, the frame gap stays bounded (no unbounded drift) | FR8 |
+| Desync detection | A disagreeing peer hash fires exactly one `onDesync`; a matching one fires none | FR8 |
+
+`NetworkAdapterSpec` (5) covers the transport plumbing: `peerFrame()` tracks the
+maximum reported frame and never regresses on out-of-order delivery, and
+committed-hash draining dedupes by frame. `JsonCharacterRepositorySpec` (5)
+covers loading the character/attack tables, and `MainTest` (2) covers the
+composition root wiring.
+
+### Native and end-to-end
+
+The C++ WebRTC layer is validated by two harnesses under `channel/test/`:
+`protocol_test.cpp` and `local_test.cpp` each create **two peers in one process**,
+pass SDP and ICE directly between them (no signaling server), open the data
+channel, and exchange packets — confirming the bridge and the 36-byte wire format
+end-to-end without a network. Full end-to-end play (two JVM instances over
+loopback WebRTC, then two physical machines) is exercised manually.
+
+### How to run
+
+```bash
+./gradlew test                       # all Kotest specs + quality gates
+./gradlew test --tests "*DeterminismSpec"
+./gradlew test --tests "*RollbackServiceSpec"
+cd channel && cmake --build build    # then run build/.../local_test
+```
+
+### Quality gates
+
+Every `./gradlew build` must pass four gates, all treated as blocking: **detekt**
+(static analysis), **ktlint** (formatting), `compileKotlin` with
+`allWarningsAsErrors`, and the full **test** suite. These run in CI on GitHub
+Actions, so a regression cannot merge. Corner cases are covered where they are
+deterministic — dropped packets (convergence-under-delay), out-of-order packets
+(`peerFrame` monotonicity), clock drift (bounded-advantage), and divergence
+(desync detection).
 
 ## Acceptance Test
 
+Several requirements cannot be checked by a pure function because they depend on
+real rendering, the native WebRTC stack, the live services, or two separate
+machines. These were validated by **manual acceptance testing**, following each
+requirement's acceptance criterion.
+
+| Requirement | Manual check | Why not automated |
+| ----------- | ------------ | ----------------- |
+| FR1 — register / login | Register and log in against the running auth service; reuse and bad credentials rejected | The Go services have no unit suite; exercised against the live service |
+| FR2 — matchmaking | Launch three clients; first two pair, third waits for a fourth | Requires multiple live clients and the signaling server |
+| FR3 — P2P / NAT traversal | Two machines behind different routers connect and play | Depends on real NATs and a public STUN server |
+| FR6 — hitstun / knockback | Land a hit; opponent slides back and cannot act for ~12 frames | Underlying logic is unit-tested; the *feel* is verified visually |
+| FR7 — rounds / timer | Timer counts 99 → 0, round ends, best-of decides the match | No `GameRules` spec yet; verified by playing |
+| FR9 — visual feedback | Resize the window; the stage scales proportionally; hitboxes show only when active | Rendering correctness is inherently visual |
+| FR10 — interactive wait / cancel | Practice loop stays responsive while queued; *Cancel* returns to the menu | Depends on the GUI event loop |
+
+The main automation gaps — unit tests for the Go services and a `GameRules` round
+spec — are noted in the future-works chapter rather than hidden.

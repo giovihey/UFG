@@ -1,5 +1,116 @@
 # Implementation
 
+This chapter records the technology-dependent choices made while realizing the
+design. The guiding principle is that each tier uses the *lightest* mechanism
+that satisfies its requirement: a binary unreliable channel where latency rules
+(NFR3), and ordinary HTTP/JSON where convenience and tooling matter more.
+
+## Network Protocols
+
+The three interaction phases of the design map onto three different protocols,
+chosen for their cost profile rather than uniformity.
+
+| Phase | Protocol stack | Why |
+| ----- | -------------- | --- |
+| Account management | HTTP/1.1 REST | Stateless request/response; trivial to test and deploy |
+| Connection setup | WebSocket (text frames) | A persistent, bidirectional channel for relaying setup messages between two peers |
+| Gameplay | WebRTC data channel — SCTP over DTLS over UDP | Unordered, unreliable, encrypted datagrams: UDP-like latency with NAT traversal built in |
+
+The data channel is configured **unordered, with no retransmission**, so a lost
+packet is never resent (NFR3) — the redundant input window covers it instead. The
+WebSocket carries only the `matched`, SDP, ICE, `ready`, `start`, and `peer_left`
+messages of the start protocol.
+
+## Data Representation
+
+In-transit data uses two representations, split along the same latency line.
+
+- **JSON** for everything off the hot path: the auth REST bodies
+  (`{"username","password"}` → `{"token"}`) and the signaling messages
+  (`{"type":"matched","role":...}`, `{"type":"start","at":...}`, …). JSON is
+  human-readable, debuggable, and cheap to produce in both Go and Kotlin.
+- **A packed binary struct** for the per-frame gameplay packet, where every byte
+  and microsecond counts. Each packet is a fixed **36 bytes**, packed with
+  `memcpy` in the C++ wrapper and unpacked identically on the other side:
+
+| Offset | Size | Field | Meaning |
+| ------ | ---- | ----- | ------- |
+| 0 | 4 | `inputMask` (`int32`) | Buttons held this frame |
+| 4 | 8 | `frameNumber` (`int64`) | Frame the input belongs to (after input delay) |
+| 12 | 8 | `senderCurrentFrame` (`int64`) | Sender's live frame, for time-sync stalling |
+| 20 | 8 | `committedFrame` (`int64`) | Frame the committed hash covers (or sentinel) |
+| 28 | 8 | `committedHash` (`int64`) | Canonical hash of `committedFrame`, for desync detection |
+
+Both peers must run a wrapper built from the same header: a mismatch in the byte
+layout would silently scramble frame numbers rather than fail loudly.
+
+## Persistence and Queries
+
+The auth service talks to **PostgreSQL** directly with **raw SQL** through the
+`pgx` driver and a connection pool — no ORM, since the schema is a single table:
+
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id            SERIAL PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL
+);
+```
+
+Only two queries exist — a `SELECT … WHERE username = $1` on every register/login
+and an `INSERT … RETURNING id` on registration — both parameterized (no string
+concatenation, so no SQL injection). Every query inherits the HTTP request's
+`context`, so a client disconnect cancels the in-flight query and returns the
+connection to the pool immediately. The pool is bounded (max 10 connections) and
+the schema is created idempotently at startup.
+
+## Authentication and Authorization
+
+**Authentication** is token-based. On register/login the service hashes or
+verifies the password with **bcrypt** (cost 12) and issues a **JWT** signed with
+**HS256**, carrying the user id, username, issuer, audience, and a 24-hour
+expiry. The same secret verifies the token; the parser explicitly rejects any
+algorithm other than HMAC, closing the classic `alg:none` forgery. A per-IP
+**token-bucket rate limiter** (2 req/s, burst 5) throttles brute-force attempts
+and returns `429`.
+
+**Authorization** is deliberately thin: a single *player* role and no privileged
+operations, so there is no RBAC/ABAC machinery. The only runtime access rule —
+"a message reaches only the other peer in the same room" — is enforced
+structurally by the signaling relay, not by a permission check.
 
 ## Technological Details
 
+### Game client (Kotlin / JVM)
+
+| Concern | Choice |
+| ------- | ------ |
+| Language / toolchain | Kotlin 2.1.10 on JDK 17 |
+| UI | Compose Desktop 1.9.3 (Canvas rendering, `mutableStateOf` observation) |
+| Serialization | kotlinx-serialization-json; `org.json` + Java-WebSocket 1.5.6 for the signaling client |
+| Native bridge | JNI to a C++ wrapper over **libdatachannel** (data channels only) |
+| Logging | slf4j + Logback + kotlin-logging |
+| Netcode | `RollbackService` — input delay 2, max rollback 8 frames, send window 8, sync threshold 2 |
+
+The rollback engine lives entirely in the application layer; the domain stays a
+synchronous, side-effect-free `(World, …) → World` pipeline, which is exactly
+what lets a misprediction be replayed by re-running the same code.
+
+### Backend services (Go)
+
+| Service | Stack |
+| ------- | ----- |
+| Auth | Go 1.25, `net/http` (std `ServeMux`), `golang-jwt/v5`, `pgx/v5`, `bcrypt`, `x/time/rate` |
+| Signaling | Go 1.22, `gorilla/websocket`; matchmaking queue and rooms held in memory behind a mutex |
+
+Both services are single static binaries with graceful shutdown on
+`SIGTERM`/`SIGINT` (NFR7) and a `GET /health` liveness check on the auth side
+that also pings the database.
+
+### Build and quality tooling
+
+The client builds with **Gradle (Kotlin DSL)** and compiles with
+`allWarningsAsErrors`. Quality gates run on every build: **ktlint** (formatting),
+**detekt** (static analysis), **Kotest** + **MockK** (tests), **Jacoco**
+(coverage), and **Dokka** (API docs). The whole stack — both services and the
+database — is brought up together with **Docker Compose**.

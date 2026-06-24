@@ -1,14 +1,120 @@
-# Requirements and Analisys
+# Requirements and Analysis
 
+This chapter states **what** the system must do, independently of how it is
+built. Requirements are grouped into *functional*, *non-functional*, and
+*implementation* constraints, are individually numbered, and each carries an
+**acceptance criterion** that the validation phase can check. We then motivate
+which distributed-system features matter for UFG, and close with a glossary of
+domain terms.
+
+There is a single business **actor**, the *player*, who registers, finds an
+opponent, fights, and reads the outcome (.ref {fig-use-case}). The two backend
+services and the opponent peer are secondary actors that support those goals.
+
+.mermaid caption:{Use-case overview: one player actor, supported by the two backend services and the opponent peer.} ref:{fig-use-case}
+    flowchart LR
+        P(("Player"))
+        P --> UC1["Register / Log in"]
+        P --> UC2["Find a match"]
+        P --> UC3["Fight the opponent"]
+        P --> UC4["See the result"]
+        UC1 -.-> Auth["Auth service"]
+        UC2 -.-> Sig["Signaling service"]
+        UC3 -.-> Peer["Opponent peer"]
 
 ## Functional Requirements
 
+Functional requirements describe the behaviour the player can observe. They fall
+into two phases: getting *into* a match (FR1–FR3) and what happens *during* one
+(FR4–FR10).
+
+| ID  | Requirement | Acceptance criterion |
+| --- | ----------- | -------------------- |
+| **FR1** | A player can create an account and log in with a username and password. | `POST /auth/register` with a fresh username and a password of at least 6 characters returns a session token; `POST /auth/login` with the same credentials returns a token, and wrong credentials return `401`. |
+| **FR2** | Logged-in players are paired automatically, without choosing a host or entering an address. | Launching three clients results in the first two playing together and the third waiting in queue until a fourth arrives; no client passes a host/join flag. |
+| **FR3** | Two matched players establish a direct peer-to-peer connection, even behind home routers. | Two clients on different NATs exchange SDP/ICE through the signaling service and open a WebRTC data channel using a public STUN server, with no manual port forwarding. |
+| **FR4** | Both players can move, jump, and attack, and attacks obey frame data (startup / active / recovery). | Pressing PUNCH triggers a JAB with 4 startup, 3 active, and 8 recovery frames. |
+| **FR5** | When an active hitbox overlaps the opponent's hurtbox, the opponent takes damage, once per activation. | A landing JAB reduces the opponent's HP by the attack's `damage` (5) and cannot hit twice in the same activation. |
+| **FR6** | A hit puts the opponent in hitstun and pushes them away from the attacker. | After being hit, the opponent cannot act for the attack's `hitstunFrames` (12 for a JAB) and slides in the knockback direction. |
+| **FR7** | A match is played as rounds with a countdown timer; the player who wins enough rounds wins the match. | The round timer starts at 99 s and decrements once per second; at 0 the round ends and the higher-HP player wins it; the first to win `ROUNDS_TO_WIN` (2) rounds wins the match. |
+| **FR8** | Each player's input is shared every frame, and both machines stay consistent without an authoritative server. | Once the authoritative inputs for a frame have been exchanged, both machines hold an identical game state for that (committed) frame; transient mispredictions are corrected by rollback rather than blocking the simulation. |
+| **FR9** | The game renders players, active hitboxes, health bars, and the timer, scaling to the window. | Resizing the window scales the stage proportionally; hitboxes are drawn only during active frames. |
+| **FR10** | While waiting in matchmaking the client stays interactive and the player can cancel. | The practice loop runs locally during the wait, and *Cancel* removes the player from the queue and returns to the menu. |
 
 ## Non-Functional Requirements
 
+Non-functional requirements constrain qualities rather than behaviour. For a
+real-time fighting game the dominant ones are determinism, timing, and latency:
+they are what make peer-to-peer play across two machines feel fair.
 
-## Implementation 
+| ID   | Requirement | Acceptance criterion |
+| ---- | ----------- | -------------------- |
+| **NFR1** | *Determinism* — identical inputs must produce identical `World` states on both machines. | All domain logic is pure: no randomness, no wall-clock reads, no mutable shared state; the physics step uses the fixed `FRAME_DT` constant. |
+| **NFR2** | *Fixed 60 Hz simulation* — physics and input are decoupled from the render rate. | `TimeManager` accumulates elapsed time and steps the engine at a fixed 60 Hz regardless of the actual frame rate. |
+| **NFR3** | *Low-latency networking* — input transport favours latency over reliability. | The WebRTC data channel is configured for unordered delivery with no retransmission. |
+| **NFR4** | *Testability* — game logic is verifiable without a GUI, network, or OS dependency. | Domain systems are pure functions exercised by Kotest specs that need no window or socket. |
+| **NFR5** | *Security of credentials* — stored secrets and sessions must not be exposed in plaintext. | Passwords are stored as bcrypt hashes (cost 12), sessions are signed JWTs that expire after 24 h, and brute-force attempts are throttled per IP (2 req/s, burst 5). |
+| **NFR6** | *Confidential transport* — gameplay traffic must not be readable on the wire. | The peer-to-peer data channel is encrypted by WebRTC's mandatory DTLS. |
+| **NFR7** | *Graceful shutdown* — backend services drain cleanly rather than dropping work abruptly. | On `SIGTERM`/`SIGINT` the auth service stops accepting connections and drains in-flight requests within a 10 s window. |
 
+## Implementation
+
+Implementation constraints fix part of the realization phase. Most stem from the
+course context; the rest emerge as consequences of the design — chiefly the
+determinism (NFR1) and testability (NFR4) demanded above — and are therefore
+justified rather than arbitrary.
+
+| Constraint | Justification |
+| ---------- | ------------- |
+| **Kotlin / JVM** for the client | Course requirement; the JVM also gives cross-platform desktop deployment for free. |
+| **Compose Desktop** for the GUI | Declarative Kotlin UI; avoids Swing boilerplate and integrates with the observable render port. |
+| **Go** for the backend services | Lightweight, statically compiled services that containerize cleanly; well suited to concurrent connection handling. |
+| **PostgreSQL** for account storage | The only durable state (accounts) is relational and small; a mature relational store is the natural fit. |
+| **libdatachannel (C++) + JNI bridge** | A ~2 MB WebRTC library exposing only data channels (no audio/video, unlike ~80 MB libwebrtc); JNI is required to drive it from the JVM. |
+| **Hexagonal architecture** | A consequence of NFR1 and NFR4: isolating the pure domain from infrastructure is what enforces determinism and testability. |
+| **Docker / Docker Compose** | Reproducible local and deployment environments for the two services and the database. |
+
+## Relevant Distributed System Features
+
+Not every distributed-system concern is equally relevant here. UFG is a
+two-peer, real-time system whose hard problems are **consistency** and
+**performance**, while large-scale fault tolerance and elastic scaling are
+deliberately out of scope within a single match. The rationale column below
+traces each feature back to the functional and non-functional requirements
+above.
+
+| Feature | Relevance | Rationale |
+| ------- | --------- | --------- |
+| **Consistency** | Critical | Both peers must agree on the game state for every committed frame; achieved by a deterministic simulation with rollback netcode that converges both peers to the same state (NFR1, FR8). |
+| **Performance** | Critical | Sub-frame latency is required; the P2P data channel removes server hops and the fixed timestep keeps simulation speed stable (NFR2, NFR3). |
+| **Transparency** | Partial | Distribution is hidden *during* gameplay — neither side is authoritative — but matchmaking and connection setup are observable to the player. |
+| **Security / trust** | Partial | Accounts are authenticated and the data channel is encrypted (NFR5, NFR6); there is no in-game authorization beyond being a matched peer. |
+| **Scalability** | Partial | The signaling service opens an isolated room per pair, so an unbounded number of concurrent 1v1 matches is supported; a single match does not scale beyond two peers, and there are no spectators. |
+| **Fault tolerance** | Limited | Backend services shut down gracefully and a dropped peer is detected (the survivor is notified and exits cleanly), but a mid-match disconnect ends the match — there is no reconnection or replication. |
+| **Resource sharing** | Low | The only shared resources are the account database and the transient matchmaking queue; gameplay shares no central resource. |
 
 ## Domain-specific terms
 
+The requirements use vocabulary from fighting games and from real-time
+networking. The following glossary fixes their meaning for the rest of the
+report.
+
+| Term | Definition |
+| ---- | ---------- |
+| **Frame** | One tick of the game loop — 1/60 s (~16.67 ms). |
+| **Input state** | Bitmask encoding which buttons are pressed in a given frame. |
+| **Frame data** | The startup, active, and recovery frame counts that define an attack's timing. |
+| **Hitbox** | Rectangle attached to an active attack; overlapping an opponent's hurtbox registers a hit. |
+| **Hurtbox** | Rectangle representing a player's vulnerable area. |
+| **Hitstun** | Frames during which a hit player cannot act. |
+| **Knockback** | Horizontal push applied to a player when hit. |
+| **AABB** | Axis-Aligned Bounding Box — collision detection using non-rotated rectangles. |
+| **Rollback netcode** | Networking model in which each peer predicts the opponent's input, simulates immediately, and rewinds-and-replays when a late authoritative input disagrees with the prediction. |
+| **Input delay** | A small fixed number of frames by which local input is scheduled into the future, so the opponent usually receives it before it is needed. |
+| **Committed frame** | A past frame that has fallen out of the rollback window and can no longer change; its world state is final and comparable across peers. |
+| **Desync** | A divergence between the two peers' simulations of the same committed frame, detected by comparing canonical state hashes. |
+| **SDP** | Session Description Protocol — the text blob describing a peer's media/data session, exchanged during the WebRTC handshake. |
+| **ICE** | Interactive Connectivity Establishment — protocol for discovering a working path between peers. |
+| **STUN** | Server that lets a peer discover its public address for NAT traversal. |
+| **Offerer / Answerer** | The two technical peer roles during setup: the waiting player creates the WebRTC offer; the joiner answers it. |
+| **JWT** | JSON Web Token — a signed token carrying the player's identity and an expiry. |

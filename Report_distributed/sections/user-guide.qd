@@ -1,8 +1,73 @@
 # User Guide
 
-<!--
-- how to use your software?
-  - provide instructions
-  - provide expected outcomes
-  - provide screenshots if possible
--->
+This guide describes how a player uses UFG, from launching the client to winning
+a match. It assumes the backend stack and the client are already running (see the
+deployment chapter).
+
+## Getting Started
+
+The client opens on the **authentication** screen. From there the flow is linear:
+
+.mermaid caption:{Screens the player moves through.}
+    stateDiagram-v2
+        [*] --> Auth
+        Auth --> Menu: log in / register
+        Menu --> Practice: press Play
+        Practice --> Menu: Cancel
+        Practice --> Versus: opponent found
+        Versus --> Game: match starts
+        Game --> MatchEnd: a player wins
+        MatchEnd --> Menu: Back
+
+1. **Log in or register.** Enter a username and password. A new username creates
+   an account; an existing one logs in. Bad credentials are rejected.
+2. **Press Play.** The client joins the matchmaking queue.
+3. **Wait in Practice.** While the queue looks for an opponent, a local practice
+   stage keeps the controls live so the wait is never a frozen screen. Pressing
+   **Cancel** leaves the queue and returns to the menu.
+4. **Fight.** When an opponent is found, a brief *VS* splash shows both names and
+   the match begins on opposite sides of the stage.
+
+## Controls
+
+The menus use the mouse; the fight uses the keyboard.
+
+| Key | Action |
+| --- | ------ |
+| `A` / `D` | Move left / right |
+| `W` / `S` | Up / crouch |
+| `Space` | Jump (no double jump) |
+| `P` | Punch — throws a JAB |
+| `K` | Kick — bound, but no kick move is wired up yet |
+
+## During a Match
+
+- **Move** with `A`/`D` to approach or retreat, and **jump** with `Space`; you
+  cannot jump again until you land.
+- **Attack** with `P`. The JAB has three phases at 60 FPS: **4 frames of
+  startup** (committed, cannot cancel), **3 active frames** (the hitbox can
+  connect), and **8 frames of recovery** (vulnerable). Timing the active window is
+  the core skill.
+- **Landing a hit** deals damage and puts the opponent in **hitstun** — for about
+  12 frames they cannot act and are pushed back by **knockback**. A single attack
+  can only connect once per swing.
+
+## Winning
+
+A round ends when either a player's HP reaches **0** or the **99-second timer**
+runs out, in which case the player with more HP takes the round. The first player
+to win **two rounds** wins the match, after which the match-end screen offers a
+return to the menu.
+
+## Reading the Screen
+
+| Element | Where | Meaning |
+| ------- | ----- | ------- |
+| Fighters | On the stage | Player 1 is the **blue** fighter, Player 2 the **red** fighter |
+| Health bars | Top corners | Player 1 top-left, Player 2 top-right; the fill shrinks with damage |
+| Round pips | Beside each health bar | One pip per round already won (first to two) |
+| Timer | Top centre | Counts down from 99 |
+| Yellow outline | On a fighter | An attack's hitbox, shown only during its active frames |
+
+The whole 800×600 stage scales uniformly to the window, so resizing keeps the
+play area proportional and simply adds letterboxing if the aspect ratio differs.

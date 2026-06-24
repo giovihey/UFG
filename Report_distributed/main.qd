@@ -7,3 +7,10 @@
 .includeall
     - sections/introduction.qd
     - sections/concept.qd
+    - sections/requirements.qd
+    - sections/design.qd
+    - sections/implementation.qd
+    - sections/validation.qd
+    - sections/deployment.qd
+    - sections/user-guide.qd
+    - sections/future-works.qd

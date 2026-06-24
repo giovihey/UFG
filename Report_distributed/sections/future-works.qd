@@ -1,0 +1,7 @@
+# Future Works
+
+This chapter collects the improvements, extensions, and unimplemented features
+that fall outside the current scope, together with a sketch of how each would be
+realized. It also closes the loop on the limitations flagged earlier: the
+detected-but-unrecovered desync and the one-sided time sync of the design
+chapter, and the automation gaps noted in validation.
