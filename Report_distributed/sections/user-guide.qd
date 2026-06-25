@@ -38,7 +38,7 @@ The menus use the mouse; the fight uses the keyboard.
 | `W` / `S` | Up / crouch |
 | `Space` | Jump (no double jump) |
 | `P` | Punch — throws a JAB |
-| `K` | Kick — bound, but no kick move is wired up yet |
+| `K` | Kick — throws a ROUNDHOUSE: slower than the JAB, but harder-hitting |
 
 ## During a Match
 

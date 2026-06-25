@@ -59,14 +59,14 @@ they are what make peer-to-peer play across two machines feel fair.
 
 ## Implementation
 
-Implementation constraints fix part of the realization phase. Most stem from the
-course context; the rest emerge as consequences of the design — chiefly the
-determinism (NFR1) and testability (NFR4) demanded above — and are therefore
-justified rather than arbitrary.
+Implementation constraints fix part of the realization phase. Some stem from
+pragmatic choices such as team familiarity; the rest emerge as consequences of
+the design — chiefly the determinism (NFR1) and testability (NFR4) demanded
+above — and are therefore justified rather than arbitrary.
 
 | Constraint | Justification |
 | ---------- | ------------- |
-| **Kotlin / JVM** for the client | Course requirement; the JVM also gives cross-platform desktop deployment for free. |
+| **Kotlin / JVM** for the client | Team familiarity and a concise, statically-typed language; the JVM also gives cross-platform desktop deployment for free. |
 | **Compose Desktop** for the GUI | Declarative Kotlin UI; avoids Swing boilerplate and integrates with the observable render port. |
 | **Go** for the backend services | Lightweight, statically compiled services that containerize cleanly; well suited to concurrent connection handling. |
 | **PostgreSQL** for account storage | The only durable state (accounts) is relational and small; a mature relational store is the natural fit. |

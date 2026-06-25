@@ -62,6 +62,7 @@ gameplay uses the keyboard.
 | `W` / `S` | directional input |
 | `Space`   | jump              |
 | `P`       | punch / jab       |
+| `K`       | kick / roundhouse |
 
 The screen flow is:
 
