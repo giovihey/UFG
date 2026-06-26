@@ -13,4 +13,47 @@
 
 ## Samite Mounir
 
-<!-- Self-Evaluation, role, strengths and weaknesses. -->
+My main role was to make the game playable between two peers and to help keep
+the project structure under control. Since I had more experience with CI,
+Docker, and software process, I worked on the parts that connected the game code
+to a reproducible development workflow. In practice, my main contributions were
+the CI setup, the Docker configuration, the WebRTC bridge, the rollback netcode,
+and the matchmaking flow. Each group member was responsible for testing and
+documenting the parts they worked on.
+
+I think the strongest part of the product is its structure. The game logic is
+kept deterministic and separated from infrastructure, which made it possible to
+add advanced networking ideas such as rollback netcode without rewriting the
+whole game. The architecture also makes the project easier to extend, because
+the networking, rendering, and domain logic have clear boundaries.
+
+The product is still not production grade. The UI is functional but not complete,
+because visual polish was not the main goal of the project. The system has also
+not been deployed online, so we could not perform strong real-world benchmarking.
+For this reason, the validation is strongest around local automated tests and
+weaker around live network performance.
+
+The hardest technical part for me was understanding the peer-to-peer connection
+flow and making the game experience feel responsive. Rollback netcode was also
+challenging, because it only works if the simulation is deterministic and if old
+states can be restored correctly. Open-source libraries, documentation, and AI
+tools helped during this work, but the final behaviour still had to be integrated
+and checked inside our own codebase.
+
+At the beginning Giovanni and I worked together closely to understand the game
+structure and decide how the main systems should fit together. Later, when the
+distributed parts became clearer, we divided the tasks more explicitly. We used a
+pull-request based workflow on GitHub, which worked well and avoided major
+merge conflicts. One practical difficulty was making complex configuration work
+on Windows; the Windows CI was the slowest and hardest pipeline to make pass, probably because it's a sloppy OS.
+
+If I had more time, I would start the distributed part earlier and keep a more
+regular development pace. We had some long pauses during the project, and each
+pause cost time because we had to remember previous decisions before continuing.
+At the same time, spending time on the game structure was necessary, because
+rollback netcode depends on having a deterministic game in the first place.
+
+Overall, my contribution was mainly architectural and infrastructural. I helped
+set up a clean project structure, divided work in a way that kept the team
+productive, and implemented the peer-to-peer parts that made the game playable
+between two machines.
