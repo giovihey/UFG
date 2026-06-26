@@ -35,6 +35,20 @@ A training bot would make offline practice useful. It can be implemented as a
 second input source that reads the current `World` and returns an `InputState`
 each frame, leaving the online rollback path untouched.
 
+## Accounts and Sessions
+
+The JWT issued at login is currently obtained, decoded client-side for the user's
+identity, and then unused: no request carries it and no service verifies it after
+issuance, so every session starts with a fresh username and password. The token is
+designed to enable two follow-ups. The first is **persistent login**: store the
+token and, on launch, skip the login screen straight to the menu while it is still
+valid — the navigation hook for this is already stubbed in `ScreenManager`. The
+second is **token-authorized matchmaking**: send the token to the signaling server
+so it admits a player only after verifying it, instead of trusting whoever
+connects. The server-side verifier (HMAC-only, rejecting `alg:none`) already
+exists for exactly this; making either feature trustworthy means verifying the
+token's signature rather than only decoding it.
+
 ## Validation and Tooling
 
 | Item | Why it matters | Implementation sketch |

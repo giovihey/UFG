@@ -6,7 +6,10 @@ deployment chapter).
 
 ## Getting Started
 
-The client opens on the **authentication** screen. From there the flow is linear:
+The client opens on the **authentication** screen (.ref {fig-login}). From there
+the flow is linear:
+
+![login](../figures/login.png "Login screen: register a new account or log in with an existing one."){#fig-login}
 
 .mermaid caption:{Screens the player moves through.}
     stateDiagram-v2
@@ -63,6 +66,10 @@ to win **two rounds** wins the match, after which the match-end screen offers a
 return to the menu.
 
 ## Reading the Screen
+
+![match](../figures/match.png "In-match screen: fighters, health bars, round pips, the timer, and an active hitbox outline."){#fig-match}
+
+The match screen (.ref {fig-match}) shows everything the player needs at a glance.
 
 | Element | Where | Meaning |
 | ------- | ----- | ------- |

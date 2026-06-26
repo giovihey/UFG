@@ -36,6 +36,39 @@ If a player disconnects before being matched, the waiting slot is cleared. If a
 player disconnects after being matched, the room is dissolved and the other
 client is notified.
 
+## Deterministic Simulation
+
+The game runs on a small engine we wrote ourselves rather than an off-the-shelf
+framework. The reason is determinism (NFR1): rollback only works if the same
+state and the same inputs always produce the same next state, and a general game
+engine hides too much non-deterministic behaviour (threading, floating-point
+quirks, wall-clock reads) to make that guarantee. Keeping the simulation small
+and explicit is what buys the property the netcode depends on.
+
+The whole simulation is a single pure function, `GameLogic.step(world, inputs)`,
+that runs a fixed, ordered pipeline of systems and returns the next `World`:
+
+1. `InputSystem` — turns each player's input into intent (movement, jump, attack);
+2. `AttackSystem` — advances active attacks frame by frame;
+3. `PhysicsSystem` — applies gravity, movement, and knockback at the fixed step;
+4. `HitDetectionSystem` — resolves hitbox/hurtbox overlaps, once per activation;
+5. game rules — ticks the round timer and resolves rounds and the match;
+6. the frame counter is incremented.
+
+The order is fixed and every system iterates players in a stable order (by id),
+so a replay produces bit-identical results regardless of the underlying map
+implementation. No system reads the clock or a random source.
+
+Two thin application-layer pieces drive this core. `GameEngine` holds the current
+`World`: `step()` advances it through `GameLogic`, and `setWorld()` restores a
+past `World` — the single seam the rollback service uses to rewind. `TimeManager`
+decouples simulation rate from render rate with a fixed-timestep accumulator: it
+sums real elapsed time and releases discrete 60 Hz steps (`FRAME_DT = 1/60`), so
+physics never depends on the actual frame rate. `GameLoop` ties it together each
+tick — poll local input, advance the simulation, render — and deliberately clamps
+catch-up to a single step per tick, because missed frames are the netcode's job,
+not the loop's.
+
 ## Rollback Netcode
 
 Rollback netcode is used so the game does not freeze while waiting for the other
@@ -66,15 +99,36 @@ sender's current frame and a hash of an older committed frame. The frame number
 helps stop one client from running too far ahead; the hash helps detect if the
 two clients have silently diverged.
 
-## Backend Storage and Security
+## Authentication Service
 
-The auth service stores only account records in PostgreSQL: user id, username,
-and bcrypt password hash. It uses raw parameterized SQL through `pgx`, with a
-bounded connection pool and idempotent schema creation at startup.
+The auth service exposes three endpoints behind a standard `net/http` router:
+`POST /auth/register`, `POST /auth/login`, and `GET /health`. Register checks that
+the username is non-empty and the password at least six characters, rejects a
+duplicate username with `409`, hashes the password, stores the account, and
+returns a token (`201`); login verifies the password and returns a token (`200`),
+answering `401` on any bad credential. `/health` pings the database so an
+orchestrator can tell the service is actually ready, not merely running.
 
-On register/login, the service verifies the password, returns a signed JWT, and
-rate-limits repeated attempts per IP. Authorization is minimal: there is one
-player role, and setup messages are isolated by signaling room.
+**Storage.** Accounts are the only durable state, kept in PostgreSQL: id,
+username, and bcrypt hash. Queries go through `pgx` as raw parameterized SQL — a
+`SELECT ... WHERE username = $1` and an `INSERT ... RETURNING id` — over a bounded
+connection pool (max 10), with the `users` table created idempotently at startup.
+Every query inherits the HTTP request's context, so a dropped client cancels the
+in-flight query instead of holding a connection.
+
+**Passwords and tokens.** Passwords are hashed with bcrypt at cost 12, so the
+stored hash is salted and slow to brute-force. On success the service issues a JWT
+signed with HS256, carrying the user id, username, issuer, audience, and a 24-hour
+expiry. The verifier accepts only HMAC signing, which closes the classic
+`alg:none` forgery; it is in place for future authenticated routes, since register
+and login do not themselves require a token. The signing secret is read from the
+environment at startup, and the service refuses to boot if it is missing rather
+than silently issuing invalid tokens.
+
+**Rate limiting and authorization.** A per-IP token-bucket limiter (2 requests/s,
+burst 5) fronts both auth endpoints and answers `429` when exceeded, blunting
+brute-force attempts. Authorization is intentionally minimal: a single player role
+and no privileged operations.
 
 ## Technology Stack
 

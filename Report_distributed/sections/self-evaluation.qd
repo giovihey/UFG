@@ -1,15 +1,56 @@
 # Self-Evaluation
 
-<!--
-- An individual section is required for each member of the group.
-- Each member must self-evaluate their work, listing the strengths and weaknesses of the product.
-- Each member must describe their role within the group as objectively as possible.
-  Each student is only responsible for their own section.
--->
-
 ## Paradisi Giovanni
 
-<!-- Self-Evaluation, role, strengths and weaknesses. -->
+My role covered a large part of the game itself — both its logic and the screens
+the player moves through — together with the authentication service. Mounir and I
+designed the entity-component-system together at the start, and from there I took
+ownership of the simulation systems and built most of what the player actually
+interacts with. In practice my main contributions were the physics, attack, and
+hit-detection systems, the engine and game-loop wiring that runs them at a fixed
+timestep, the round and match logic, the client screen flow (menu, matchmaking
+wait, practice, and match-end screens) with its login form, and the
+authentication service in Go, along with the tests for the systems I built.
+
+Tying those systems into something playable meant building our own small game
+engine and loop instead of reaching for an existing framework. This was a
+deliberate choice: the determinism the netcode depends on is far easier to
+guarantee when we control every step of the simulation ourselves.
+
+I think the strongest part of my work is that the game logic is deterministic and
+tested where it matters. Each system is a pure `World -> World` function, so I
+could exercise the physics, attack, and hit-detection systems directly with
+Kotest, without a window or a network. That coverage was not only a quality gate:
+it gave us the confidence that the simulation was deterministic enough for
+Mounir's rollback netcode to rewind and replay it correctly. Hit detection in
+particular had to iterate players in a stable order and register a hit only once
+per activation, and the specs are what kept that behaviour honest.
+
+The product is not production grade. I chose to put
+testing effort into the domain systems and left the Go auth service and the round
+logic to manual verification rather than CI — a deliberate trade-off given where
+we chose to spend our effort, but still a gap I would close. More broadly the combat is shallow
+compared to a real fighting game.
+
+The hardest technical part for me was getting determinism exactly right. Small
+choices that look harmless — iteration order over a map, where a value is clamped,
+when a frame counter advances — turn into correctness bugs the moment the same
+frame is replayed during a rollback, and the only reliable way to catch them was
+to keep the systems pure and pin their behaviour with tests. Keeping the Compose
+screens in step with a domain that was still changing underneath them was a
+smaller but constant second effort.
+
+The way we split the work suited me well. Because I owned the game client and the
+auth service while Mounir owned the infrastructure and the netcode, we could
+usually work in parallel without stepping on each other's code. The friction on my
+side was mostly context-switching: moving between the Kotlin domain, the Compose
+UI, and the Go service meant holding three quite different mental models at once.
+
+With more time the first things I would add are automated tests for the auth
+service and a round-logic spec, and then deeper combat, since the deterministic
+foundation is already there to support it. Overall my contribution spanned most of the playable
+game — the deterministic simulation, the screens the player moves through, and the
+round logic — plus the authentication service that gets players into a match.
 
 ## Samite Mounir
 
