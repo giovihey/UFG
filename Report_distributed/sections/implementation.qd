@@ -1,116 +1,110 @@
 # Implementation
 
-This chapter records the technology-dependent choices made while realizing the
-design. The guiding principle is that each tier uses the *lightest* mechanism
-that satisfies its requirement: a binary unreliable channel where latency rules
-(NFR3), and ordinary HTTP/JSON where convenience and tooling matter more.
+This chapter maps the design to concrete technologies. Each protocol is chosen
+for the phase it supports: convenience before the match, low latency during it.
 
-## Network Protocols
+## Protocols and Data
 
-The three interaction phases of the design map onto three different protocols,
-chosen for their cost profile rather than uniformity.
+| Phase | Protocol stack | Reason |
+| ----- | -------------- | ------ |
+| Account management | HTTP/1.1 REST with JSON | Simple stateless request/response |
+| Matchmaking and setup | WebSocket text messages | Persistent relay for `matched`, SDP, ICE, `ready`, `start`, and `peer_left` |
+| Gameplay | WebRTC data channel: SCTP over DTLS over UDP | Encrypted peer-to-peer datagrams with NAT traversal |
 
-| Phase | Protocol stack | Why |
-| ----- | -------------- | --- |
-| Account management | HTTP/1.1 REST | Stateless request/response; trivial to test and deploy |
-| Connection setup | WebSocket (text frames) | A persistent, bidirectional channel for relaying setup messages between two peers |
-| Gameplay | WebRTC data channel — SCTP over DTLS over UDP | Unordered, unreliable, encrypted datagrams: UDP-like latency with NAT traversal built in |
+The gameplay channel is unordered and has no retransmission. A stale input is
+less useful than the next fresh packet, so reliability is handled at the game
+layer by sending a redundant window of recent inputs.
 
-The data channel is configured **unordered, with no retransmission**, so a lost
-packet is never resent (NFR3) — the redundant input window covers it instead. The
-WebSocket carries only the `matched`, SDP, ICE, `ready`, `start`, and `peer_left`
-messages of the start protocol.
+Data representation follows the same split. Auth and signaling use JSON because
+those messages are off the hot path and easy to debug. Per-frame gameplay uses a
+fixed binary packet containing input mask, input frame, sender frame, committed
+frame, and committed hash. Both peers must agree on this layout.
 
-## Data Representation
+## Matchmaking Queue
 
-In-transit data uses two representations, split along the same latency line.
+The signaling server keeps matchmaking very small. It stores at most one waiting
+player. When the first player connects, they are put in this waiting slot. When a
+second player connects, the server removes the waiting player, creates a room for
+the pair, and tells both clients that they have been matched.
 
-- **JSON** for everything off the hot path: the auth REST bodies
-  (`{"username","password"}` → `{"token"}`) and the signaling messages
-  (`{"type":"matched","role":...}`, `{"type":"start","at":...}`, …). JSON is
-  human-readable, debuggable, and cheap to produce in both Go and Kotlin.
-- **A packed binary struct** for the per-frame gameplay packet, where every byte
-  and microsecond counts. Each packet is a fixed **36 bytes**, packed with
-  `memcpy` in the C++ wrapper and unpacked identically on the other side:
+The waiting player becomes the offerer and creates the WebRTC offer. The second
+player becomes the answerer. After that, the signaling server only relays setup
+messages between those two clients. Other matched pairs get their own rooms, so
+their setup messages do not mix.
 
-| Offset | Size | Field | Meaning |
-| ------ | ---- | ----- | ------- |
-| 0 | 4 | `inputMask` (`int32`) | Buttons held this frame |
-| 4 | 8 | `frameNumber` (`int64`) | Frame the input belongs to (after input delay) |
-| 12 | 8 | `senderCurrentFrame` (`int64`) | Sender's live frame, for time-sync stalling |
-| 20 | 8 | `committedFrame` (`int64`) | Frame the committed hash covers (or sentinel) |
-| 28 | 8 | `committedHash` (`int64`) | Canonical hash of `committedFrame`, for desync detection |
+If a player disconnects before being matched, the waiting slot is cleared. If a
+player disconnects after being matched, the room is dissolved and the other
+client is notified.
 
-Both peers must run a wrapper built from the same header: a mismatch in the byte
-layout would silently scramble frame numbers rather than fail loudly.
+## Rollback Netcode
 
-## Persistence and Queries
+Rollback netcode is used so the game does not freeze while waiting for the other
+player's input. In a fighting game, waiting even a few frames feels bad. The
+client therefore keeps playing immediately and fixes the result later if the
+remote input arrives late.
 
-The auth service talks to **PostgreSQL** directly with **raw SQL** through the
-`pgx` driver and a connection pool — no ORM, since the schema is a single table:
+The implementation lives in `RollbackService`, which is called once per game
+frame by `GameLoop`. On every tick it does five simple things:
 
-```sql
-CREATE TABLE IF NOT EXISTS users (
-    id            SERIAL PRIMARY KEY,
-    username      VARCHAR(50)  NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL
-);
-```
+1. It records the local player's input for a near-future frame.
+2. It sends that input, plus a few recent inputs, to the peer. Repeating recent
+   inputs helps when one packet is lost.
+3. If the peer's input for the current frame has not arrived, it guesses by
+   reusing the last known remote input.
+4. Before simulating a frame, it saves the current `World` as a snapshot.
+5. It advances the game by running the normal deterministic game logic.
 
-Only two queries exist — a `SELECT … WHERE username = $1` on every register/login
-and an `INSERT … RETURNING id` on registration — both parameterized (no string
-concatenation, so no SQL injection). Every query inherits the HTTP request's
-`context`, so a client disconnect cancels the in-flight query and returns the
-connection to the pool immediately. The pool is bounded (max 10 connections) and
-the schema is created idempotently at startup.
+When the real remote input arrives, the service compares it with the guess. If
+the guess was correct, nothing special happens. If it was wrong, the service
+loads the saved snapshot from before that old frame and replays the frames up to
+the present using the correct input. This is the "rollback": go back to a known
+state, then simulate forward again.
 
-## Authentication and Authorization
+This works because the domain code is deterministic. The same `World` plus the
+same inputs always produces the same next `World`. Each packet also carries the
+sender's current frame and a hash of an older committed frame. The frame number
+helps stop one client from running too far ahead; the hash helps detect if the
+two clients have silently diverged.
 
-**Authentication** is token-based. On register/login the service hashes or
-verifies the password with **bcrypt** (cost 12) and issues a **JWT** signed with
-**HS256**, carrying the user id, username, issuer, audience, and a 24-hour
-expiry. The same secret verifies the token; the parser explicitly rejects any
-algorithm other than HMAC, closing the classic `alg:none` forgery. A per-IP
-**token-bucket rate limiter** (2 req/s, burst 5) throttles brute-force attempts
-and returns `429`.
+## Backend Storage and Security
 
-**Authorization** is deliberately thin: a single *player* role and no privileged
-operations, so there is no RBAC/ABAC machinery. The only runtime access rule —
-"a message reaches only the other peer in the same room" — is enforced
-structurally by the signaling relay, not by a permission check.
+The auth service stores only account records in PostgreSQL: user id, username,
+and bcrypt password hash. It uses raw parameterized SQL through `pgx`, with a
+bounded connection pool and idempotent schema creation at startup.
 
-## Technological Details
+On register/login, the service verifies the password, returns a signed JWT, and
+rate-limits repeated attempts per IP. Authorization is minimal: there is one
+player role, and setup messages are isolated by signaling room.
 
-### Game client (Kotlin / JVM)
+## Technology Stack
+
+### Game client
 
 | Concern | Choice |
 | ------- | ------ |
 | Language / toolchain | Kotlin 2.1.10 on JDK 17 |
-| UI | Compose Desktop 1.9.3 (Canvas rendering, `mutableStateOf` observation) |
-| Serialization | kotlinx-serialization-json; `org.json` + Java-WebSocket 1.5.6 for the signaling client |
-| Native bridge | JNI to a C++ wrapper over **libdatachannel** (data channels only) |
-| Logging | slf4j + Logback + kotlin-logging |
-| Netcode | `RollbackService` — input delay 2, max rollback 8 frames, send window 8, sync threshold 2 |
+| UI | Compose Desktop 1.9.3 |
+| Serialization / signaling | kotlinx-serialization-json 1.8.0, `org.json` 20251224, Java-WebSocket 1.5.6 |
+| Native bridge | JNI wrapper over libdatachannel |
+| Logging | slf4j 2.0.13, Logback 1.5.13, kotlin-logging 7.0.0 |
+| Tests / quality | Kotest 5.8.0, MockK 1.13.13, ktlint 14.0.1, detekt 1.23.8, Dokka 2.1.0, Jacoco |
 
-The rollback engine lives entirely in the application layer; the domain stays a
-synchronous, side-effect-free `(World, …) → World` pipeline, which is exactly
-what lets a misprediction be replayed by re-running the same code.
-
-### Backend services (Go)
+### Backend services
 
 | Service | Stack |
 | ------- | ----- |
-| Auth | Go 1.25, `net/http` (std `ServeMux`), `golang-jwt/v5`, `pgx/v5`, `bcrypt`, `x/time/rate` |
-| Signaling | Go 1.22, `gorilla/websocket`; matchmaking queue and rooms held in memory behind a mutex |
+| Auth | Go 1.25.0, `net/http`, `golang-jwt/v5` 5.2.1, `pgx/v5` 5.5.5, `x/crypto` 0.22.0, `x/time/rate` 0.15.0 |
+| Signaling | Go 1.22.0, `gorilla/websocket` 1.5.3, in-memory queue and room map behind a mutex |
 
-Both services are single static binaries with graceful shutdown on
-`SIGTERM`/`SIGINT` (NFR7) and a `GET /health` liveness check on the auth side
-that also pings the database.
+Both services are static binaries with graceful shutdown. The auth service also
+exposes a `/health` endpoint that checks database reachability.
 
-### Build and quality tooling
+## Build and CI
 
-The client builds with **Gradle (Kotlin DSL)** and compiles with
-`allWarningsAsErrors`. Quality gates run on every build: **ktlint** (formatting),
-**detekt** (static analysis), **Kotest** + **MockK** (tests), **Jacoco**
-(coverage), and **Dokka** (API docs). The whole stack — both services and the
-database — is brought up together with **Docker Compose**.
+The game client builds with Gradle and compiler warnings as errors. CI runs the
+Kotlin tests and `./gradlew build`, builds the C++ channel, and builds the Go
+signaling service. The current CI gaps are backend unit tests, auth-service build
+coverage, and CTest registration for the native channel harnesses.
+
+The backend stack is run through Docker Compose: PostgreSQL, auth service, and
+signaling service.

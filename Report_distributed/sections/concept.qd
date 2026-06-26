@@ -4,7 +4,7 @@ UFG is a distributed real-time 2D fighting game. Two players, each on their own
 machine, connect peer-to-peer and fight in real time: every frame each client
 samples its local input, exchanges it with the opponent, and runs the same
 deterministic simulation. Two small backend services support the game without
-ever taking part in the fight — one for authentication, one for matchmaking and
+ever taking part in the fight: one for authentication, one for matchmaking and
 connection setup.
 
 .mermaid caption:{High-level view of the system.}
@@ -19,8 +19,9 @@ connection setup.
 ## Product Type
 
 The main product is a **desktop application with a GUI**, written in Kotlin with
-Compose Desktop. It bundles the user-facing screens (login, menu, matchmaking,
-fight, match-end) and the deterministic simulation that runs the match.
+Compose Desktop. It bundles the user-facing screens (login/register, menu,
+matchmaking practice, VS splash, fight, match-end) and the deterministic
+simulation that runs the match.
 
 It is supported by two **web services**, both written in Go:
 
@@ -37,9 +38,10 @@ developer conveniences.
 ### Where are the users?
 
 On desktop computers (macOS, Linux, or Windows), either on the same local
-network or anywhere across the internet. WebRTC handles NAT traversal through a
-public STUN server, so players behind a home router connect directly without
-manual port forwarding.
+network or anywhere across the internet, as long as both clients can reach the
+same configured auth and signaling services. WebRTC handles NAT traversal
+through a public STUN server, so players behind a home router connect directly
+without manual port forwarding.
 
 ### When and how often do they interact?
 
@@ -54,27 +56,10 @@ Interaction has two rhythms:
 ### How do they interact? Which devices?
 
 Through the Compose Desktop GUI with mouse and keyboard. Menus use the mouse;
-gameplay uses the keyboard.
-
-| Key       | Action            |
-| --------- | ----------------- |
-| `A` / `D` | move left / right |
-| `W` / `S` | directional input |
-| `Space`   | jump              |
-| `P`       | punch / jab       |
-| `K`       | kick / roundhouse |
-
-The screen flow is:
-
-.mermaid caption:{Client screen flow.}
-    stateDiagram-v2
-        [*] --> Auth
-        Auth --> Menu: login / register
-        Menu --> Practice: Play
-        Practice --> Menu: Cancel
-        Practice --> Game: peer connected
-        Game --> MatchEnd: winner decided
-        MatchEnd --> Menu: Back
+gameplay uses the keyboard. At concept level the flow is account access,
+matchmaking with a local practice loop, a synchronized peer-to-peer fight, and a
+match result. The exact key bindings and screen-by-screen player instructions
+are kept in the user guide.
 
 ### Does the system store user data? Which? Where?
 
@@ -97,9 +82,20 @@ play, and return to the menu. No admin, moderator, or spectator role exists.
 
 During connection setup two technical peer roles appear:
 
-- **Host (offerer)** — the player already waiting; creates the WebRTC offer and
+- **Host (offerer)**: the player already waiting; creates the WebRTC offer and
   picks the shared start time.
-- **Joiner (answerer)** — the player who joins next; answers the offer.
+- **Joiner (answerer)**: the player who joins next; answers the offer.
 
 Once the connection is open the two peers are symmetric: neither is an
 authoritative server, and combat is computed identically on both sides.
+
+## Scope Boundaries
+
+Several omissions are intentional in this version because the project focuses on
+the distributed real-time match rather than on a complete commercial fighting
+game platform. There are no rankings, replays, spectators, mid-match
+reconnection, authoritative anti-cheat, or replicated backend services.
+
+This concept fixes the product boundary and user context. The next chapter turns
+that context into testable requirements and the distributed-system properties
+that the design must preserve.

@@ -1,71 +1,50 @@
-# Future Works
+# Future Work
 
-This chapter collects the improvements, extensions, and unimplemented features
-that fall outside the current scope, together with a sketch of how each would be
-realized. The core distributed problem — a deterministic simulation kept
-consistent across two peers by rollback netcode — is solved; what remains is
-gameplay depth, presentation, and the last few robustness gaps. We group the
-work into four themes: richer gameplay, presentation, an offline opponent, and
-the netcode and tooling loose ends that earlier chapters defer here.
+The current implementation demonstrates the core approach: deterministic local
+simulation, rollback, and committed-frame hash checks across two peers. The next
+steps are about making the game deeper, nicer to use, and easier to validate.
 
 ## Gameplay Features
 
-The combat system is already richer than a prototype: several `Character`
-definitions with distinct stats and hurtboxes are loaded from JSON, each carries
-its own `moveList`, and both punch and kick — with neutral and crouching variants
-— are wired through the input pipeline. What remains is player *choice*, a
-defensive option, and deeper move variety. None of this touches the netcode:
-every addition is a pure change to the deterministic domain and therefore stays
-consistent across peers for free (NFR1).
-
-| Feature | What it adds | How it would be built |
+| Feature | What it adds | Implementation sketch |
 | ------- | ------------ | --------------------- |
-| **Character selection** | A select screen where each player picks a fighter instead of the two hardcoded defaults, so the matchup is no longer fixed. | The `Character` entity, multiple JSON fighters, and per-player loading already exist; the work is a UI screen plus exchanging both picks during connection setup so the peers agree before the match starts. |
-| **Blocking** | A defensive option: holding *back* (away from the opponent) nullifies or reduces incoming damage and replaces hitstun with a shorter blockstun, creating genuine risk/reward. | The `MoveInput.BLOCK` command and `PlayerState.BLOCKSTUN` placeholders already exist but are unused; implementing them needs opponent-relative facing detection and a damage path that branches on the defender's state. |
-| **Expanded move list** | Heavier and aerial attacks, and the directional variants the command enum already enumerates but no fighter defines yet. | Populate each `Character.moveList` with more `Attack` definitions; the existing hitbox/hitstun pipeline already consumes frame data, so no new systems are needed. |
+| **Character selection** | Players choose fighters instead of using the hardcoded rushdown/heavy matchup. | Add a select screen and exchange both picks before the match starts. |
+| **Blocking** | A defensive option that reduces damage or converts hitstun into shorter blockstun. | Use opponent-relative facing and the existing `BLOCKSTUN` placeholder. |
+| **Expanded move list** | Heavy, aerial, and additional directional attacks. | Add more `Attack` entries to each JSON character; the current attack pipeline already consumes frame data. |
 
-Because characters change the rules of the simulation, a mismatched roster would
-desync at the first differing hit. The clean fix pairs naturally with a select
-screen: hash the full character definition at handshake and refuse to start a
-match if the two peers disagree, rather than discovering the divergence mid-fight
-through the desync detector.
+Because character data affects simulation, peers should also compare a roster
+hash during setup and refuse to start if their local character definitions
+differ.
 
 ## Presentation
 
-The game currently renders colored rectangles and is silent. This is the most
-visible gap and the one with the lowest technical risk, since none of it affects
-the simulation — all presentation is derived *from* the deterministic world,
-never the reverse.
+The game is currently readable but visually minimal. Presentation can improve
+without changing deterministic game logic because rendering is derived from the
+finished `World`.
 
-- **Sprites and animation.** Replace the placeholder rectangles with per-state
-  sprite sheets, selecting frames from each fighter's current state and frame
-  counter. The render layer already reads a finished `World`, so animation is a
-  lookup, not new game logic.
-- **Audio.** Add sound effects for hits, blocks, jumps, and round transitions,
-  plus background music, triggered by the same domain events that the renderer
-  already observes.
-- **Hit feedback.** Flash or shake on impact, a color change during hitstun, and
-  stage background art — small touches that make exchanges readable at a glance.
-
-A related but distinct improvement is **rollback smoothing**: when a rewind
-moves a fighter, interpolate the rendered position over two or three render
-frames instead of snapping it. This changes nothing in the simulation — it only
-softens the visible "pop" that a correction can otherwise cause — and is the
-single largest perceived-quality gain available once sprites are in.
+- Replace colored rectangles with per-state sprites.
+- Add sound effects for hits, jumps, round transitions, and menu actions.
+- Add impact feedback such as flash, shake, hitstun coloring, and stage art.
+- Smooth visible rollback corrections by interpolating rendered positions for a
+  few render frames while keeping simulation state unchanged.
 
 ## Offline Training Bot
 
-Today the only way to fight is to be matched with a human peer; the practice loop
-that runs while queuing spawns an opponent fighter, but it stands idle and never
-reacts. An **AI-controlled opponent** for offline training would let a player
-learn moves, spacing, and timing without a network connection.
+Practice mode already runs locally while matchmaking, but the opponent is idle.
+A training bot would make offline practice useful. It can be implemented as a
+second input source that reads the current `World` and returns an `InputState`
+each frame, leaving the online rollback path untouched.
 
-Because the domain is a pure `(World, inputs) → World` function, a bot is simply
-a second input source: it reads the current `World` and returns an `InputState`
-each frame, exactly where remote input would otherwise arrive. A first version
-can be a reactive rule set (approach, attack when in range, retreat when
-threatened); a more *intelligent* version could weight options by distance,
-opponent state, and frame advantage, or be trained offline against the
-deterministic engine — which doubles as a perfectly reproducible simulator.
-Crucially, this path never touches `RollbackService`: the bot substitutes for
-the network in the offline mode and leaves the online code untouched.
+## Validation and Tooling
+
+| Item | Why it matters | Implementation sketch |
+| ---- | -------------- | --------------------- |
+| **Go service unit tests** | Auth and signaling are currently covered mainly by build/manual checks. | Add handler tests for auth and WebSocket tests for queueing, relay, cancel, and disconnect cleanup. |
+| **Round/timer rule spec** | Timer, KO, round reset, and match end lack dedicated automated coverage. | Test `GameLogic.step` fixtures for timeout, KO, round counter, reset, and best-of completion. |
+| **JNI packet test** | Kotlin tests cover adapter queues, but not one real native packet through the wrapper. | Send one gameplay packet through `WebRtcBridge.sendInput` and assert all fields survive unchanged. |
+| **CTest registration** | The native harnesses are built but not registered as CTest tests. | Add `enable_testing()` and `add_test(...)` for `local_test` and `protocol_test`. |
+| **Manual evidence log** | NAT traversal, rendering, GUI cancellation, and live auth need repeatable proof. | Store commit, date, OSes, network setup, commands, logs/screenshots, and pass/fail result. |
+| **Backend CI coverage** | CI builds signaling but not auth, and runs no Go tests. | Add `go test ./...` jobs for both Go modules and a Docker Compose auth `/health` smoke test. |
+
+Together, these items turn the prototype evidence into a repeatable release
+process without changing the architecture.

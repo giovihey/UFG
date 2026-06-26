@@ -19,8 +19,9 @@ The client opens on the **authentication** screen. From there the flow is linear
         Game --> MatchEnd: a player wins
         MatchEnd --> Menu: Back
 
-1. **Log in or register.** Enter a username and password. A new username creates
-   an account; an existing one logs in. Bad credentials are rejected.
+1. **Log in or register.** Use **Register** to create an account with a new
+   username, or switch back to **Login** for an existing account. Bad credentials
+   are rejected.
 2. **Press Play.** The client joins the matchmaking queue.
 3. **Wait in Practice.** While the queue looks for an opponent, a local practice
    stage keeps the controls live so the wait is never a frozen screen. Pressing
@@ -37,20 +38,22 @@ The menus use the mouse; the fight uses the keyboard.
 | `A` / `D` | Move left / right |
 | `W` / `S` | Up / crouch |
 | `Space` | Jump (no double jump) |
-| `P` | Punch — throws a JAB |
-| `K` | Kick — throws a ROUNDHOUSE: slower than the JAB, but harder-hitting |
+| `P` | Punch |
+| `K` | Kick |
 
 ## During a Match
 
 - **Move** with `A`/`D` to approach or retreat, and **jump** with `Space`; you
   cannot jump again until you land.
-- **Attack** with `P`. The JAB has three phases at 60 FPS: **4 frames of
-  startup** (committed, cannot cancel), **3 active frames** (the hitbox can
-  connect), and **8 frames of recovery** (vulnerable). Timing the active window is
-  the core skill.
-- **Landing a hit** deals damage and puts the opponent in **hitstun** — for about
-  12 frames they cannot act and are pushed back by **knockback**. A single attack
-  can only connect once per swing.
+- **Attack** with `P` or `K`. Punches are generally faster and lighter; kicks are
+  slower but hit harder. Holding `S` while attacking selects the crouching
+  variant when the current fighter defines one.
+- **Time the active frames.** Every move has startup, active, and recovery phases
+  loaded from the fighter's character data. During startup and recovery the
+  attack cannot hit; during active frames the hitbox can connect.
+- **Landing a hit** deals the move's configured damage and puts the opponent in
+  **hitstun**, pushing them back with **knockback**. A single attack can only
+  connect once per swing.
 
 ## Winning
 
@@ -71,3 +74,6 @@ return to the menu.
 
 The whole 800×600 stage scales uniformly to the window, so resizing keeps the
 play area proportional and simply adds letterboxing if the aspect ratio differs.
+
+This completes the run-time view of the current system. The following chapter
+collects improvements that were intentionally left outside the submitted scope.

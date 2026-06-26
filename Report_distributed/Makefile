@@ -1,4 +1,4 @@
-# Makefile for the Project Management report (Quarkdown).
+# Makefile for the Distributed Systems report (Quarkdown).
 # Each target delegates to a bash script under scripts/.
 
 SHELL := /usr/bin/env bash

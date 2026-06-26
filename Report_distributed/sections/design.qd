@@ -1,106 +1,74 @@
 # Design
 
-This chapter explains the strategies used to meet the requirements of the
-previous chapter, independently of the technologies chosen for the
-implementation. Every choice is motivated against a requirement or a
-distributed-system feature: the dominant drivers are **consistency** and
-**performance** (NFR1, NFR2, NFR3, FR8), with **security** (NFR5, NFR6) shaping
-the supporting services.
+This chapter explains the architecture and consistency mechanisms behind UFG.
+The central design choice is simple: gameplay is peer-to-peer, while account
+management and matchmaking are handled by small supporting services.
 
 ## Architecture
 
-UFG combines two architectural styles, one per concern.
+During a match, both clients are equal peers. Each client owns a local copy of
+the world, samples its player's input, exchanges inputs with the opponent, and
+runs the same deterministic simulation. There is no authoritative game server in
+the gameplay path, which avoids adding a server hop to every frame.
 
-- **Gameplay is peer-to-peer.** During a match the two clients are symmetric
-  equals: each runs the full simulation and exchanges inputs directly with the
-  other. There is no authoritative game server. This is the natural style for a
-  two-party, latency-critical interaction (NFR3) — a central server would add a
-  round trip to every frame for no benefit.
-- **Supporting services are client–server.** Account management and matchmaking
-  are classic request/response and relay concerns, so the auth and signaling
-  services are plain servers the clients talk to *before* the fight.
+The backend is deliberately narrower. The auth service handles accounts and
+session tokens; the signaling service pairs two players and relays WebRTC setup
+messages. Once the data channel is open, gameplay inputs flow directly between
+the clients.
 
-Internally, the client follows a **hexagonal (ports & adapters)** architecture.
-The pure domain depends on nothing; the application layer defines ports; the
-infrastructure layer provides adapters. This is a direct consequence of NFR1 and
-NFR4: isolating the domain from I/O is what keeps the simulation deterministic
-and unit-testable, and it lets the transport (WebRTC), the renderer (Compose),
-and the input device be swapped without touching game logic.
+Internally, the client follows a hexagonal architecture. The domain is pure game
+logic; the application layer owns the loop and rollback service; infrastructure
+adapters provide rendering, keyboard input, authentication, signaling, and
+WebRTC.
 
-.mermaid caption:{Client layering (hexagonal) and the two supporting services.}
+.mermaid caption:{Client layering and supporting services.}
     flowchart TB
         subgraph Client
             direction TB
-            INFRA["Infrastructure — Compose, WebRTC bridge, signaling client"]
-            APP["Application — GameLoop, RollbackService, ports"]
-            DOM["Domain — World, systems, components (pure)"]
+            INFRA["Infrastructure: Compose, WebRTC, HTTP/WebSocket"]
+            APP["Application: GameLoop, RollbackService, ports"]
+            DOM["Domain: World, Player, systems, components"]
             INFRA --> APP --> DOM
         end
         Client -->|REST| Auth["Auth service"]
         Client -->|WebSocket| Sig["Signaling service"]
         Auth --> DB[("PostgreSQL")]
 
-The dependency rule is strict: **Domain ← Application ← Infrastructure**. Inner
-layers never reference outer ones, so the domain can be exercised with no window,
-socket, or clock.
+The dependency rule is strict: inner layers never depend on outer layers. That
+is what lets the simulation be tested without a GUI, socket, database, or clock.
 
-## Infrastructure
+## Components
 
-Five kinds of components take part, in three trust zones.
+The deployed system contains five component types:
 
-| Component | Count | Role |
-| --------- | ----- | ---- |
-| Game client | 2 per match | Runs the GUI, the simulation, and rollback netcode |
-| Auth service | 1 | Issues and verifies session tokens |
-| PostgreSQL | 1 | Durable account store, private to the auth service |
-| Signaling service | 1 | Matchmaking queue + per-pair relay of setup messages |
-| STUN server | 1 (public) | Lets peers discover their public address for NAT traversal |
+| Component | Role |
+| --------- | ---- |
+| Game client | Runs the GUI, simulation, rollback netcode, and WebRTC data channel |
+| Auth service | Issues and verifies session tokens |
+| PostgreSQL | Stores the durable account records |
+| Signaling service | Holds the matchmaking queue and relays setup messages inside a two-player room |
+| STUN server | Helps peers discover a direct path through NAT |
 
-The two backend services and the database are deployed together (a single
-Docker Compose stack) and can live in one datacenter; they are not on the
-gameplay hot path, so their location relative to players does not affect match
-latency. The clients sit anywhere on the internet. The STUN server is a public
-Google endpoint.
+The backend services and database can be deployed together because they are not
+on the frame-by-frame gameplay path. Clients are configured with the auth URL,
+the signaling URL, and the STUN address.
 
-Components find each other by **static configuration**, not service discovery:
-each client is configured with the auth and signaling URLs and the STUN address.
-The signaling service is what lets the *two peers* find each other — it pairs
-them and assigns each a role — after which they hole-punch a direct path and no
-longer need any intermediary.
+## Domain Model
 
-.mermaid caption:{Component diagram. Solid edges are gameplay-critical; dashed edges are used only before the fight.}
-    flowchart LR
-        A["Client A"]
-        B["Client B"]
-        A -.->|register / login| Auth["Auth service"]
-        B -.->|register / login| Auth
-        Auth --> DB[("PostgreSQL")]
-        A -.->|queue, SDP, ICE| Sig["Signaling service"]
-        B -.->|queue, SDP, ICE| Sig
-        A -.->|public address| STUN["STUN server"]
-        B -.->|public address| STUN
-        A ==>|per-frame inputs WebRTC/DTLS| B
-
-## Modelling
-
-### Domain entities
-
-The gameplay domain is small and immutable. `World` is the single source of
-truth for a frame; `Player` is a fighter instance; `Character` is a fighter
-template. Every value object (`Position`, `Health`, `Attack`, …) is an immutable
-`data class`, which is what makes a snapshot of the whole world as cheap as
-copying a reference (the basis for rollback).
+`World` is the state of one simulation frame. It contains two `Player` values,
+the stage, the timer, and the match status. `Character` is a loaded template that
+provides health, hurtbox, movement, and move-list data. These values are Kotlin
+data classes, so every simulation step returns a new state instead of mutating
+the old one.
 
 .mermaid caption:{Domain model of a match.}
     classDiagram
         class World {
             +frameNumber: Long
             +players: Map
-            +stageBounds: Rectangle
             +gameStatus: GameStatus
             +roundTimer: Int
             +copyWithUpdatedPlayer()
-            +copyWithFrameIncrement()
         }
         class Player {
             +id: Int
@@ -118,34 +86,12 @@ copying a reference (the basis for rollback).
         World "1" *-- "2" Player
         Character ..> Player : template for
 
-### Mapping entities to infrastructure
-
-| Entity / state | Lives where | Why |
-| -------------- | ----------- | --- |
-| `World`, inputs, snapshots | Both clients, in memory | No authoritative server; each peer simulates independently |
-| Account (id, username, hash) | PostgreSQL | The only data that must outlive a session |
-| Session token | Client memory | Bearer credential for the session |
-| Matchmaking queue, rooms | Signaling memory | Transient pairing state, discarded once matched |
-
-### Domain events and messages
-
-The system is driven by events that map onto three message styles:
-
-| Style | Examples | Transport |
-| ----- | -------- | --------- |
-| **Command / Query** | *register*, *login* | REST request/response to the auth service |
-| **Relay message** | *queue*, *matched*, SDP *offer*/*answer*, ICE candidate, *ready*, *start*, *peer_left* | WebSocket through the signaling service |
-| **Event stream** | per-frame `InputState` (with `frameNumber`, `senderCurrentFrame`, committed hash) | Direct peer-to-peer datagrams |
-
 ## Interaction
 
-A session unfolds in three phases with three different interaction patterns:
-**request/response** with the auth service, **mediated relay** through signaling,
-and **direct streaming** between peers. The signaling WebSocket stays open after
-the peer connection is established only long enough to run the start handshake,
-then gameplay traffic flows exclusively peer-to-peer.
+A session moves through three phases: login over REST, matchmaking and setup over
+WebSocket, then gameplay over a direct WebRTC data channel.
 
-.mermaid caption:{End-to-end interaction, from login to the first input frame.}
+.mermaid caption:{End-to-end interaction, from login to first input exchange.}
     sequenceDiagram
         participant A as Client A
         participant Au as Auth
@@ -162,137 +108,69 @@ then gameplay traffic flows exclusively peer-to-peer.
         B->>S: SDP answer
         S->>A: relay answer
         A->>B: ICE candidates (relayed both ways)
-        Note over A,B: P2P data channel open (DTLS)
+        Note over A,B: WebRTC data channel open
         A->>S: ready
         B->>S: ready
         A->>S: start(at)
         S->>B: relay start(at)
-        Note over A,B: both sleep until wall-clock = at
         A-->>B: InputState per frame
         B-->>A: InputState per frame
 
-The **start handshake** deserves emphasis because it is a coordination problem:
-each peer's data channel opens on its own schedule, so starting both at
-`frame 0` immediately would leave one peer frames behind and outside the
-rollback window. The peers therefore exchange `ready`, the offerer picks a shared
-wall-clock start time `at = now + 500 ms`, and both sleep until `at` before
-constructing their engines. A 5 s timeout aborts a half-started match.
+The start handshake keeps the two simulations aligned. After both data channels
+are ready, the offerer broadcasts a shared start time (`now + 500 ms`). Both
+clients wait for that barrier before constructing their real game loops; the UI
+may keep the VS splash visible longer for presentation.
 
-## Behaviour
+## Simulation and Consistency
 
-Components differ sharply in statefulness:
+Every frame runs the same pure pipeline:
 
-| Component | Stateful? | Behaviour |
-| --------- | --------- | --------- |
-| Auth service | No (per request) | Validates input, reads/writes PostgreSQL, returns a token; all durable state is in the DB |
-| Signaling service | Yes (in memory) | Holds at most one waiting client and a set of two-peer rooms; pairs on arrival, relays within a room, dissolves a room on disconnect |
-| Game client | Yes | Runs the loop; owns its `World` and the rollback ring buffer |
+```text
+InputSystem -> AttackSystem -> PhysicsSystem -> HitDetectionSystem
+            -> GameLogic.applyGameRules -> frame++
+```
 
-Each client updates **its own** copy of the system state — there is no component
-that owns the global game state. Per tick, `RollbackService` schedules local
-input (with input delay), drains authoritative remote inputs, rewinds-and-replays
-on misprediction, advances one frame through the pure `GameLogic` pipeline, and
-broadcasts a redundant window of recent inputs.
+Because both peers share only inputs, not world state, the simulation itself must
+be deterministic. Four properties support that:
 
-.mermaid caption:{Match status state machine (the `GameStatus` of a `World`).}
-    stateDiagram-v2
-        [*] --> Running
-        Running --> RoundEnd: HP = 0 or timer = 0
-        RoundEnd --> Running: next round
-        RoundEnd --> MatchEnd: rounds-to-win reached
-        MatchEnd --> [*]
+1. Pure systems: no randomness, wall-clock reads, or external I/O in domain code.
+2. Fixed timestep: physics advances with the same 1/60 s step on every machine.
+3. Immutable state: each `World` is a snapshot that rollback can restore.
+4. Rollback convergence: late authoritative inputs trigger rewind and replay,
+   so committed frames eventually match on both peers.
 
-Within a frame the domain systems run as a fixed pipeline — `InputSystem →
-AttackSystem → PhysicsSystem → HitDetectionSystem → GameRules → frame++` — each a
-pure `(World, …) → World` function. The same pipeline is what rollback replays
-when correcting a misprediction, which is why it must be free of side effects.
+Each gameplay packet also carries the sender's latest committed-frame hash. If a
+peer reports a different hash for the same committed frame, the client emits a
+desync event. The current implementation detects and logs the problem; it does
+not repair the match automatically.
 
-## Data and Consistency Issues
+## Fault Tolerance and Availability
 
-The only data that must be **stored** is the account record (id, username,
-bcrypt hash), kept in PostgreSQL because it is small, relational, and long-lived.
-The auth service is the sole component that queries it — a `FindByUsername`
-lookup on every register/login and a `CreateUser` insert on registration. Reads
-and writes are naturally concurrent across players but never contend on the same
-row, so no special coordination is needed.
+The design favours consistency over availability during a match. If one client
+runs too far ahead, it stalls briefly rather than letting the simulations drift
+outside the rollback window. Each packet repeats a small window of recent inputs,
+so isolated packet loss is usually covered by the next packet without
+retransmission.
 
-The data **shared between components at runtime** is the per-frame input stream
-between the two peers — and nothing else. This is deliberate: sharing only inputs
-(not world state) is what keeps bandwidth tiny (NFR3) and makes the simulation
-the single thing that must agree.
+The limits are intentional. There is no gameplay replication, no mid-match
+reconnection, and no automatic desync recovery. If the data channel closes, the
+game loop exits cleanly. The signaling service may notice the room cleanup, but
+it is not required for already-established gameplay.
 
-Because there is no authoritative server, **consistency** is the central design
-problem. It is guaranteed by four properties working together:
-
-1. **Determinism** — pure systems, no RNG, no transcendental functions, no
-   wall-clock `dt`; physics steps the constant `FRAME_DT` (NFR1).
-2. **Fixed timestep** — the engine always advances at 60 Hz regardless of render
-   rate (NFR2).
-3. **Immutable state** — `data class` + `copy()` makes every `World` a free
-   snapshot, so rewinding is just reassigning a reference.
-4. **Rollback convergence** — peers predict, simulate, and rewind-and-replay so
-   that every *committed* frame (one that has left the rollback window) is
-   identical on both machines.
-
-To catch any violation of (1), peers piggyback a canonical hash of their most
-recent committed frame on every packet; a mismatch with the local hash for the
-same frame raises a **desync** event.
-
-## Fault-Tolerance
-
-There is **no gameplay replication** — the symmetric peers are effectively two
-independent computations of the same match, which is its own crude redundancy,
-but neither is a backup of the other. The account database is a single instance.
-
-Several **timeout, retry, and redundancy** mechanisms guard the hot path:
-
-- **Redundant input window** — each packet repeats the last several frames of
-  local input, so a single lost datagram is covered by the next packet with no
-  retransmission (matching NFR3's unreliable transport).
-- **Time-sync stall** — a peer that runs ahead of the other stalls a tick,
-  bounding the frame gap so late inputs never fall outside the rollback window.
-- **Start-handshake timeout** — 5 s, after which a non-responding peer aborts the
-  match rather than starting half-synced.
-- **Graceful shutdown** — the auth service drains in-flight requests on
-  `SIGTERM`/`SIGINT` (NFR7), and a request's DB query is cancelled if the client
-  disconnects.
-
-**Error handling** is honest about its limits. If a peer disconnects mid-match
-the surviving client is told (`peer_left`) and exits cleanly, but there is no
-reconnection. A confirmed desync is logged, not repaired. These are acceptable
-for the project's scope and are revisited in the future-works chapter.
-
-## Availability
-
-There is no caching layer and no load balancing: each service is a single
-process. The signaling service still scales to many simultaneous matches because
-it opens an isolated room per pair, but it is one process with the queue and
-rooms in memory.
-
-Under **network partitioning** the system favours **consistency over
-availability** on the gameplay path. If the link between peers degrades, the
-time-sync mechanism stalls the faster peer rather than letting the two
-simulations drift apart; a full partition eventually trips the connection's
-failure handling and ends the match. Crucially, a partition between a client and
-the *signaling* service after the peer connection is established has **no
-effect** — signaling is only needed for setup.
+The backend is also simple: one auth service, one signaling service, and one
+database. The signaling service can host many two-player rooms until bounded by
+the resources of that single process; there is no load balancer or replicated
+matchmaking state.
 
 ## Security
 
-**Authentication** is handled entirely by the auth service: a player registers
-or logs in with a username and password, and receives a signed session token
-(NFR5). Passwords are never stored in the clear — only a bcrypt hash — and
-repeated attempts from one address are rate-limited to blunt brute force.
+Credentials are handled only by the auth service. Passwords are stored as bcrypt
+hashes, successful login returns a signed JWT, and repeated attempts are
+rate-limited. Gameplay traffic uses WebRTC's DTLS-protected data channel.
 
-**Authorization** is intentionally minimal: there is a single *player* role and
-no privileged operations, so the only access decision in the system is "is this a
-matched peer?" — enforced implicitly by the per-room relay, which forwards
-messages only between the two clients of a room.
+Authorization is minimal because the game has one player role. The practical
+access rule is room isolation: setup messages are relayed only between the two
+clients matched into the same room.
 
-**Cryptographic schemes** appear in three places:
-
-| Scheme | Where | Purpose |
-| ------ | ----- | ------- |
-| bcrypt (cost 12) | Auth service / DB | One-way password hashing |
-| Signed JWT (HS256, 24 h) | Auth ↔ client | Tamper-evident session token |
-| DTLS | Peer-to-peer data channel | Encrypts and integrity-protects every input packet (NFR6) |
+The next chapter maps these design choices to concrete protocols, data formats,
+storage, and libraries.

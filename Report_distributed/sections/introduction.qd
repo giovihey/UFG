@@ -1,3 +1,23 @@
-# Introduction 
+# Introduction
 
-this is the last step
+UFG is a small distributed 2D fighting game built to explore a hard real-time
+problem: keeping two machines in agreement while both players expect immediate
+input response. The project combines a desktop game client, an authentication
+service, a signaling service, and a direct peer-to-peer gameplay channel.
+
+The main contribution is the match architecture. During a fight, there is no
+authoritative game server. Each client runs the same deterministic simulation
+and exchanges only player inputs through a WebRTC data channel. Rollback netcode
+absorbs late inputs by rewinding and replaying local state, while committed-frame
+hashes detect cases where the two simulations diverge.
+
+The backend services are intentionally modest. Authentication stores accounts
+and issues session tokens. Signaling pairs players and relays WebRTC setup
+messages, then leaves gameplay traffic to the peers. This keeps the distributed
+system focused on the central consistency and latency problem rather than on a
+large online platform.
+
+The report first defines the product boundary and requirements, then explains
+the design, implementation, validation, deployment, and player-facing workflow.
+It ends with future work and self-evaluation, including the parts intentionally
+left outside the submitted scope.

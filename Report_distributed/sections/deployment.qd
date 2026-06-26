@@ -1,121 +1,96 @@
 # Deployment
 
-The system has two deployable parts with very different shapes. The **backend
-stack** (database, auth service, signaling service) is fully containerized and
-comes up with a single command. The **game client** is a native + JVM
-application that each player builds and runs locally, because it links a
-platform-specific WebRTC library through JNI.
+UFG has two deployable parts. The backend stack is containerized with Docker
+Compose. The desktop client is built locally because it links a platform-specific
+WebRTC library through JNI.
 
 ## Prerequisites
 
-| Tool | Version | Needed for |
-| ---- | ------- | ---------- |
-| Docker + Compose | recent | The backend stack (database and both services) |
-| JDK | 17+ | Building and running the game client |
-| CMake | 3.16+ | Building the C++ WebRTC bridge |
-| libdatachannel + OpenSSL | current | The native library the bridge links against |
-| Go | 1.22+ | Only if running a service outside Docker (e.g. benchmarking) |
+| Tool | Needed for |
+| ---- | ---------- |
+| Docker + Compose | PostgreSQL, auth service, signaling service |
+| JDK 17+ | Game client |
+| CMake 3.16+ | Native WebRTC bridge |
+| libdatachannel + OpenSSL | Native bridge dependencies |
+| Go 1.22+ | Optional service runs outside Docker |
 
-Gradle itself does not need to be installed — the repository ships the `gradlew`
-wrapper.
+Gradle is provided by the repository wrapper.
 
-## Backend Services (Docker Compose)
+## Backend Stack
 
-The three backend components are described in `docker-compose.yml`: a
-`postgres:16-alpine` database, the `auth-service` (built from
-`authentication/Dockerfile`), and the `signaling` service. Two **secrets must be
-provided** before starting — they are read from the environment, so the
-recommended approach is a local `.env` file:
+Create a local `.env` file before starting the backend:
 
 ```bash
-# .env (never commit this)
 POSTGRES_PASSWORD=<choose-a-strong-password>
 JWT_SECRET=<long-random-string>
 ```
 
-Bring the whole stack up with the Makefile target (which wraps
-`docker compose up --build -d`):
+Start all backend services with:
 
 ```bash
-make signaling      # builds images and starts postgres + auth + signaling
+make signaling
 ```
 
-**Expected outcome:** `docker compose ps` shows all three services running, the
-database reports *healthy*, and `GET http://localhost:8081/health` returns `200`
-once Postgres is reachable. Stop the stack with `make down`.
+Expected result: `docker compose ps` shows Postgres, auth, and signaling
+running; `GET http://localhost:8081/health` returns `200` once Postgres is
+ready. Stop the stack with:
 
-### Published ports
+```bash
+make down
+```
 
-| Service | Container port | Host port |
-| ------- | -------------- | --------- |
-| Signaling | 8080 | `8080` |
-| Auth service | 8080 | `8081` |
-| PostgreSQL | 5432 | `5432` (dev only, via `docker-compose.override.yml`) |
+Published ports:
 
-### How the Compose file is engineered
+| Service | Host port |
+| ------- | --------- |
+| Signaling | `8080` |
+| Auth service | `8081` |
+| PostgreSQL | `5432` in the development override |
 
-A few deliberate choices make the stack robust and reproducible:
-
-- **Startup ordering** — `auth-service` declares `depends_on` the database with
-  `condition: service_healthy`, and Postgres has a `pg_isready` healthcheck, so
-  the auth service never starts against a database that is not yet accepting
-  connections.
-- **Durable data** — Postgres writes to a named volume (`postgres_data`), so
-  accounts survive container restarts.
-- **Private network** — all three services share a `ufg_net` bridge network; the
-  auth service reaches the database by its service name (`postgres:5432`), and
-  the database port is only published in the dev *override* file, not in the base
-  file.
-- **Resilience** — every service uses `restart: unless-stopped`.
-- **Configuration by environment** — `DB_URL`, `JWT_SECRET`, `JWT_ISSUER`, and
-  `JWT_AUDIENCE` are injected as environment variables, keeping secrets out of
-  the image.
+The Compose stack uses a named Postgres volume, a private bridge network,
+environment-based secrets, health checks, and `restart: unless-stopped`.
 
 ## Game Client
 
-Each player builds the client in two steps.
-
-**1 — Build the native WebRTC bridge.** This compiles the C++ wrapper over
-libdatachannel into a platform library (`.so` / `.dylib` / `.dll`):
+Build the native WebRTC bridge:
 
 ```bash
 make channel
-# Windows: point at your installs if they are not on the default paths
+```
+
+On Windows, pass dependency locations if they are not installed at the default
+paths:
+
+```bash
 make channel LIBDATACHANNEL_PREFIX=path/to/libdatachannel OPENSSL_PREFIX=path/to/OpenSSL-Win64
 ```
 
-**2 — Build and run the client.** Gradle compiles the Kotlin (running the quality
-gates and tests) and launches the window; the native library path is wired in by
-the build:
+Build and run the client:
 
 ```bash
-make game        # equivalently: cd game && ./gradlew run
+make game
 ```
 
-**Expected outcome:** an 800×600 game window opens on the authentication/menu
-screen.
+Expected result: an 800x600 game window opens on the authentication screen.
 
-### Running a match
+## Running a Local Match
 
-Start the backend once, then launch **two clients** — locally in two terminals
-or on two machines pointed at the same backend host:
+Use three terminals:
 
 ```bash
-make signaling   # terminal 1: backend stack
-make game        # terminal 2: player one
-make game        # terminal 3: player two
+make signaling   # backend stack
+make game        # player one
+make game        # player two
 ```
 
-No host/join flag is needed: the first client to queue is assigned the
-*offerer* role and the second the *answerer*; they exchange SDP/ICE through the
-signaling service, establish the direct P2P connection, and the match begins.
+The first queued client becomes offerer, the second becomes answerer. They
+exchange SDP/ICE through signaling, open the direct WebRTC data channel, and
+start the match.
 
-## Configuration Summary
+The current client build uses localhost backend URLs:
+`http://localhost:8081` and `ws://localhost:8080/ws`. Running against a backend
+on another machine therefore requires rebuilding or configuring the client with
+shared auth and signaling URLs.
 
-| Variable / path | Where | Purpose |
-| --------------- | ----- | ------- |
-| `POSTGRES_PASSWORD` | `.env` | Database password (also embedded in `DB_URL`) |
-| `JWT_SECRET` | `.env` | Secret that signs and verifies session tokens |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | Compose | Token issuer/audience claims |
-| `LIBDATACHANNEL_PREFIX` / `OPENSSL_PREFIX` | `make` args | Native library locations (Windows) |
-| JVM `java.library.path` | set by Gradle | Lets the JVM find the compiled bridge |
+The next chapter switches from operator instructions to the player's view of the
+application.

@@ -11,12 +11,24 @@
 
     .whitespace {1.5cm}
 
-    Master Degree in *Ingegneria e Scienze Informatiche* 
+    Master Degree in *Ingegneria e Scienze Informatiche*
 
     University of Bologna
 
     .whitespace {1cm}
 
     Course: **Distributed Systems**
+
+    Academic year: **2025/2026**
+
+    Date: **26 June 2026**
+
+    Repository: **https://github.com/giovihey/UFG**
+
+    Group: **Paradisi Giovanni / Samite Mounir**
+
+    AI disclosure: AI tools supported report drafting from our documentation,
+    tables/diagrams, and parts of the C++ WebRTC work; all content was reviewed
+    and edited by the authors.
 
 .pagebreak
