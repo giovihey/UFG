@@ -41,9 +41,7 @@ client is notified.
 The game runs on a small engine we wrote ourselves rather than an off-the-shelf
 framework. The reason is determinism (NFR1): rollback only works if the same
 state and the same inputs always produce the same next state, and a general game
-engine hides too much non-deterministic behaviour (threading, floating-point
-quirks, wall-clock reads) to make that guarantee. Keeping the simulation small
-and explicit is what buys the property the netcode depends on.
+engine hides too much non-deterministic behaviour (threading, floating-point, wall-clock reads) to make that guarantee.
 
 The whole simulation is a single pure function, `GameLogic.step(world, inputs)`,
 that runs a fixed, ordered pipeline of systems and returns the next `World`:
@@ -57,7 +55,7 @@ that runs a fixed, ordered pipeline of systems and returns the next `World`:
 
 The order is fixed and every system iterates players in a stable order (by id),
 so a replay produces bit-identical results regardless of the underlying map
-implementation. No system reads the clock or a random source.
+implementation.
 
 Two thin application-layer pieces drive this core. `GameEngine` holds the current
 `World`: `step()` advances it through `GameLogic`, and `setWorld()` restores a
@@ -65,9 +63,7 @@ past `World` — the single seam the rollback service uses to rewind. `TimeManag
 decouples simulation rate from render rate with a fixed-timestep accumulator: it
 sums real elapsed time and releases discrete 60 Hz steps (`FRAME_DT = 1/60`), so
 physics never depends on the actual frame rate. `GameLoop` ties it together each
-tick — poll local input, advance the simulation, render — and deliberately clamps
-catch-up to a single step per tick, because missed frames are the netcode's job,
-not the loop's.
+tick: poll local input, advance the simulation, render.
 
 ## Rollback Netcode
 
@@ -109,26 +105,17 @@ returns a token (`201`); login verifies the password and returns a token (`200`)
 answering `401` on any bad credential. `/health` pings the database so an
 orchestrator can tell the service is actually ready, not merely running.
 
-**Storage.** Accounts are the only durable state, kept in PostgreSQL: id,
-username, and bcrypt hash. Queries go through `pgx` as raw parameterized SQL — a
-`SELECT ... WHERE username = $1` and an `INSERT ... RETURNING id` — over a bounded
-connection pool (max 10), with the `users` table created idempotently at startup.
-Every query inherits the HTTP request's context, so a dropped client cancels the
-in-flight query instead of holding a connection.
+**Storage.** Accounts are the only durable state, kept in PostgreSQL through `pgx`
+with parameterized queries over a bounded connection pool. Each row holds an id, a
+username, and a bcrypt hash — never a plaintext password.
 
-**Passwords and tokens.** Passwords are hashed with bcrypt at cost 12, so the
-stored hash is salted and slow to brute-force. On success the service issues a JWT
-signed with HS256, carrying the user id, username, issuer, audience, and a 24-hour
-expiry. The verifier accepts only HMAC signing, which closes the classic
-`alg:none` forgery; it is in place for future authenticated routes, since register
-and login do not themselves require a token. The signing secret is read from the
-environment at startup, and the service refuses to boot if it is missing rather
-than silently issuing invalid tokens.
+**Passwords and tokens.** Passwords are hashed with bcrypt before storage, so a
+leaked database does not expose them. On success the service returns a JWT signed
+with HS256 that carries the user id and a 24-hour expiry; the secret is read from
+the environment, and the service refuses to start without it.
 
-**Rate limiting and authorization.** A per-IP token-bucket limiter (2 requests/s,
-burst 5) fronts both auth endpoints and answers `429` when exceeded, blunting
-brute-force attempts. Authorization is intentionally minimal: a single player role
-and no privileged operations.
+**Rate limiting.** A per-IP token-bucket limiter (2 requests/s, burst 5) fronts
+both endpoints and answers `429` when exceeded, blunting brute-force attempts.
 
 ## Technology Stack
 

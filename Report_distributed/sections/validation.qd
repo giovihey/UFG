@@ -22,9 +22,6 @@ in `MainTest`. The useful checks fall into four groups.
 | Rollback | `RollbackServiceSpec` | Zero-delay correctness, convergence under delayed input, bounded frame advantage, stalls, and desync events |
 | Adapters/data | `NetworkAdapterSpec`, `JsonCharacterRepositorySpec` | Packet queueing, peer-frame tracking, committed-hash dedupe, and character JSON loading |
 
-`HealthSpec` currently contains only a commented TODO, so it is not evidence yet.
-Health changes are covered indirectly through hit detection.
-
 The C++ channel directory also contains `protocol_test.cpp` and
 `local_test.cpp`, which create two libdatachannel peers in one process and open a
 data channel. These harnesses are useful, but they do not by themselves prove
