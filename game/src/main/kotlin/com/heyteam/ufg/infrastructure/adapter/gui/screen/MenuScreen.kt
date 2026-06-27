@@ -48,7 +48,7 @@ fun menuScreen(
                 color = UiTheme.p1,
             )
             Text(
-                text = "Ultra Fighting Game",
+                text = "Ultimate Fighting Game",
                 fontSize = 14.sp,
                 color = UiTheme.muted,
                 letterSpacing = 3.sp,
